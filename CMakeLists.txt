@@ -3,5 +3,5 @@ project(PR3_Clion)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES webproxy.c handle_with_curl.c)
 add_executable(PR3_Clion ${SOURCE_FILES})

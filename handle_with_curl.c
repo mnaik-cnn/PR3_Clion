@@ -4,21 +4,27 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdio.h>
 
 #include "gfserver.h"
 
 //Replace with an implementation of handle_with_curl and any other
 //functions you may need.
 
-ssize_t handle_with_file(gfcontext_t *ctx, char *path, void* arg){
+ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg){
 	int fildes;
 	size_t file_len, bytes_transferred;
 	ssize_t read_len, write_len;
 	char buffer[4096];
 	char *data_dir = arg;
 
+    printf("\n***DataDir = %s***\n",data_dir);
+    printf("***Path = %s***\n",path);
+
 	strcpy(buffer,data_dir);
 	strcat(buffer,path);
+
+    printf("\nFilename: %s",buffer);
 
 	if( 0 > (fildes = open(buffer, O_RDONLY))){
 		if (errno == ENOENT)
