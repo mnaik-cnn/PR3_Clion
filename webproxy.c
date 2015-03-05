@@ -111,7 +111,9 @@ int main(int argc, char **argv) {
   gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_curl);
   for(i = 0; i < nworkerthreads; i++)
     printf("***SETTING ARGS FOR PROXY THREAD %d ***",i);
-    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "data");
+    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "data!!!!!!!!!!!");
+
+
 
   /*Loops forever*/
     printf("\n***START TO SERVE***\n");
