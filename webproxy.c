@@ -94,6 +94,7 @@ int main(int argc, char **argv) {
 
   for(i = 0; i < nworkerthreads; i++)
     //gfs.contexts->arg = server;
+    //send a data structure as an argument, file name and shared memory descriptor
     gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);
 
   /*Loops forever*/

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
-#include <curl/curl.h>
+/include <curl/curl.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -41,8 +41,6 @@ ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg) {
 
 		strcpy(full_file_path, data_dir);
 		strcat(full_file_path, path);
-
-
 
 		}
 		else {

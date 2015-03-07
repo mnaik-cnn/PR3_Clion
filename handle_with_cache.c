@@ -28,12 +28,15 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 	strcat(buffer,path);
 
 
-	//we need a queue object
+	//we may need to initialize this in web proxy according to instructions
 
-	// we need the queue object initialized with files BY the proxy
+	//1.) a request has come in, as the call back, we have retrieved a shared memory descriptor
+	//2.) communicate request via socket to simplecached, the file name and the file descriptor
+	//3.) lock, copy saved by simplecached, unlock
+	//4.) send the file from the shared memory desciptor,
 
-	// we need the queue object in a shared memory file, initialized in the proxy
-	// we need a mutex around the access of the queue object both here and the proxy
+
+
 
 
 
