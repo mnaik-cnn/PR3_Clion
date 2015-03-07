@@ -12,7 +12,7 @@ all: webproxy simplecached
 simplecached: simplecached.o simplecache.o steque.o shm_channel.o
 	$(CC) -o $@ $(CFLAGS) $^ $(LDFLAGS)	
 
-webproxy: webproxy.o steque.o gfserver.o handle_with_file.o handle_with_curl.o shm_channel.o
+webproxy: webproxy.o steque.o gfserver.o handle_with_file.o handle_with_curl.o handle_with_cache.o shm_channel.o
 	$(CC) -o $@ $(CFLAGS) $(CURL_CFLAGS) $^ $(LDFLAGS) $(CURL_LIBS) 
 
 .PHONY: clean

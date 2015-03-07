@@ -11,9 +11,14 @@
 
 #define MAX_CACHE_REQUEST_LEN 256
 
+
+
+
+
 static void _sig_handler(int signo){
 	if (signo == SIGINT || signo == SIGTERM){
-		shmc_unlink(shmc);
+		//shmc_unlink(shmc);
+		/*!!!!!!!!!!!!!!!!!!!!UNLINK IPC MECHANISMS HERE!!!!!!!!!!!!!!!!!!!*/
 		exit(signo);
 	}
 }
@@ -40,8 +45,10 @@ void Usage() {
 
 int main(int argc, char **argv) {
 	int nthreads = 1;
-	int i;
-	char *cachedir = "locals.txt";
+
+	// what is int i for???
+	//int i;
+	char *cachedir = "workload_cache.txt";
 	char option_char;
 
 
@@ -73,8 +80,22 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	/* Initializing the cache */
+	printf("\n***Initializing the cache***\n");
+	printf("\n***Cache Dir = %s***\n",cachedir);
 	simplecache_init(cachedir);
+
+	printf("***NUM CACHE THREADS: %d***\n",nthreads);
+
+
+	// spin up pool of threads that wait for a request over a...socket?
+
+	// threads access shared memory structure?
+
+	// threads get /return file
+
+	//simplecache_init("workload.txt");
+
+	//printf("\n***STATUS FOR %s is %d***\n",,status);
 
 	//Your code here...
 }

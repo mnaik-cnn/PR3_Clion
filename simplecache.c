@@ -31,13 +31,18 @@ int simplecache_init(char *filename){
 
 	items = (item_t*) malloc(capacity * sizeof(item_t));
 	nitems = 0;
+
 	while(fgets(items[nitems].key, MAX_KEYLEN, filelist)){
 		/*Taking out EOL character*/
 		items[nitems].key[strlen(items[nitems].key)-1] = '\0';
 
 		/* Using space delimiter to sep key and path*/
 		path = items[nitems].key;
-		strsep(&path, " ");
+		//printf("\npath:%s\n",path);
+
+		//what is this for?
+		//strsep(&path, " ");
+
 
 		if( 0 > (items[nitems].fildes = open(path, O_RDONLY))){
 			fprintf(stderr, "Unable to open file %s.\n", path);
