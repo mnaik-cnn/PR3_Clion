@@ -24,11 +24,11 @@ ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg) {
 
 
 	char *full_file_path = malloc(512);
-	//char *data_dir = arg;
-	//char* data_dir = "poop";
+
 	//we need to pass this in...
 	char buffer[4096];
-	char* data_dir = "s3.amazonaws.com/content.udacity-data.com";
+	//char* data_dir = "s3.amazonaws.com/content.udacity-data.com";
+	char* data_dir = arg;
 
 	//full_file_path[0] = '\0';
 	printf("\n***DataDirr = %s***\n",data_dir);
