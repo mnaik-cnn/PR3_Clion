@@ -17,7 +17,7 @@ typedef struct _gfcontext_t gfcontext_t;
 
 struct _gfserver_t{
 	steque_t req_queue;
-	unsigned int short port;
+	unsigned short port;
 	int max_npending;
 	int nthreads;
 	int socket_fd;
@@ -51,22 +51,70 @@ typedef enum{
   GFS_WORKER_ARG
 } gfserver_option_t;
 
-/* Setting up the server.  Call this from the main thread.*/
+/* 
+ * Initializes the input gfserver_t object to use nthreads.
+ */
 void gfserver_init(gfserver_t *gfh, int nthreads);
 
-/* Setting options.  Call this from the main thread.*/
+/* 
+ * Sets options for the gfserver_t object. The table below
+ * lists the values for option in the left column and the
+ * additional arguments in the right.
+ *
+ * GFS_PORT 	  		unsigned short indicating the port on which 
+ * 						the server should receive connections.
+ *
+ * GFS_MAXNPENDING 	 	int indicating the maximum number of pending
+ * 						connections the receiving socket should permit.
+ *
+ * GFS_WORKER_FUNC 		a function pointer with the signature
+ * 						ssize_t (*)(gfcontext_t *, char *, void*);
+ *
+ *						The first argument contains the needed context
+ *						information for the server and should be passed
+ *						into calls to gfs_sendheader and gfs_send.
+ *						
+ *						The second argument is the path of the requested
+ *						resource.
+ * 
+ * 						The third argument is the argument registered for
+ *						this particular thread with the GFS_WORKER_ARG
+ *						option.
+ *
+ *
+ * GFS_WORKER_ARG		This option is followed by two arguments, an int
+ *						indicating the thread index [0,...,nthreads-1] and
+ * 						a pointer which will be passed into the callback
+ * 						registered via the GFS_WORKER_FUNC option on this 
+ *						thread.
+ *						
+ */
 void gfserver_setopt(gfserver_t *gfh, gfserver_option_t option, ...);
 
-/* Start serving.  Call this from the main thread.*/
+/*
+ * Connects the server to the socket so that it can begin handling
+ * requests.  
+ */
 void gfserver_serve(gfserver_t *gfh);
 
-/* Start stop.  Call this from the main thread or a signal handler.*/
+/*
+ * Shuts down the server associated with the input gfserver_t object.  
+ */
 void gfserver_stop(gfserver_t *gfh);
 
-/*Call from registered callback */
+/*
+ * Sends to the client the Getfile header containing the appropriate 
+ * status and file length for the given inputs.  This function should
+ * only be called from within a callback registered with the 
+ * GFS_WORKER_FUNC option.
+ */
 ssize_t gfs_sendheader(gfcontext_t *ctx, gfstatus_t status, size_t file_len);
 
-/*Call from registered callback */
-ssize_t gfs_send(gfcontext_t *ctx, void *data, size_t);
+/*
+ * Sends size bytes starting at the pointer data to the client 
+ * This function should only be called from within a callback registered 
+ * with the GFS_WORKER_FUNC option.
+ */
+ssize_t gfs_send(gfcontext_t *ctx, void *data, size_t size);
 
 #endif

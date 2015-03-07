@@ -7,13 +7,7 @@
 #include <signal.h>
 
 #include "gfserver.h"
-
-
-
-
-
-
-
+                                                                \
 #define USAGE                                                                 \
 "usage:\n"                                                                    \
 "  webproxy [options]\n"                                                     \
@@ -26,8 +20,6 @@
 "  -d [drop_factor]    Drop connects if f*t pending requests (Default: 5).\n"
 
 
-#define DEBUG 1;
-
 /* OPTIONS DESCRIPTOR ====================================================== */
 static struct option gLongOptions[] = {
   {"port",          required_argument,      NULL,           'p'},
@@ -39,6 +31,8 @@ static struct option gLongOptions[] = {
 
 //extern ssize_t handle_with_file(gfcontext_t *ctx, char *path, void* arg);
 extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
+
+
 
 static gfserver_t gfs;
 
@@ -55,9 +49,6 @@ int main(int argc, char **argv) {
   unsigned short port = 8888;
   unsigned short nworkerthreads = 1;
   char *server = "s3.amazonaws.com/content.udacity-data.com";
-
-  printf("\n***WebProxy started***\n");
-  printf("\n***Server name: %s***\n",server);
 
   if (signal(SIGINT, _sig_handler) == SIG_ERR){
     fprintf(stderr,"Can't catch SIGINT...exiting.\n");
@@ -94,28 +85,15 @@ int main(int argc, char **argv) {
   /* SHM initialization...*/
 
   /*Initializing server*/
-
-  //if(DEBUG == 1)
-  //{
-    printf("\nTHREADS: %d\n",nworkerthreads);
-  //}
-
   gfserver_init(&gfs, nworkerthreads);
 
   /*Setting options*/
   gfserver_setopt(&gfs, GFS_PORT, port);
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
-
-    //we need to change this to "handle_with_curl" obviously
-
   gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_curl);
   for(i = 0; i < nworkerthreads; i++)
-    printf("***SETTING ARGS FOR PROXY THREAD %d ***",i);
-    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "data!!!!!!!!!!!");
-
-
+    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "data");
 
   /*Loops forever*/
-    printf("\n***START TO SERVE***\n");
   gfserver_serve(&gfs);
 }
