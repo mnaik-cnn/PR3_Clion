@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
+#include <netdb.h>
 #define FILE_STORAGE_BUFFER_SIZE 15000000
 #define SOCKET_ERROR -1
 #define FILE_STORAGE_BUFFER_SIZE 15000000
@@ -20,8 +20,6 @@ int nAddressSize;
 int nHostPort;
 
 
-
-
 struct cache_workload{
     char* shared_memory_name;
     char* requested_file_name;
@@ -29,4 +27,3 @@ struct cache_workload{
 
 void FillAddress(struct sockaddr_in *Address,int nHostPort);
 int CreateServerSocket(int *hServerSocket);
-int getServerSocket();

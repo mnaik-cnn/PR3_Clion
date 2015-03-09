@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
-/include <curl/curl.h>
+#include <curl/curl.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -125,9 +125,13 @@ int get_file(CURL* easyhandle, const char* url, const char* file_name)
 {
 	//CURL* easyhandle = curl_easy_init();
 
+	long fail;
+
 	CURLcode res;
 
 	curl_easy_setopt( easyhandle, CURLOPT_URL, url ) ;
+
+	curl_easy_setopt(easyhandle,CURLOPT_FAILONERROR,fail);
 
 	FILE* file = fopen(file_name, "w");
 
