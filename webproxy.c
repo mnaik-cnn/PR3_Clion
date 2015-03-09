@@ -87,6 +87,9 @@ int main(int argc, char **argv) {
   /*Initializing server*/
   gfserver_init(&gfs, nworkerthreads);
 
+  //initialize shared memory here per instructions...
+
+
   /*Setting options*/
   gfserver_setopt(&gfs, GFS_PORT, port);
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);

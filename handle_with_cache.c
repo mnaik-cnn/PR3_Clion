@@ -3,10 +3,11 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
+
+
+
 
 #include "gfserver.h"
-
 #include "simplecache.h"
 #include "shm_channel.h"
 
@@ -72,24 +73,88 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 
 		//LOOK HERE!
-		//SEND CACHE A FILE NAME AND IT WILL RETURN A FILE DESCRIPTOR
-		char* shm_fd = malloc(256*sizeof(char));
 
-		// heres the file name...
-		printf("\n***WRITING %s TO SOCKET***\n",path);
+		//CREATE SHARED MEM
+		// SEND SHARED MEM FD AND FILE NAME
 
-		write(hSocket,path, 256 * sizeof(char));
-		// thanks mr. cache, for telling me where i can find the file!!!!
-		read(hSocket,shm_fd, 256 * (sizeof(char)));
+		int file_size = 0;
+		char* shm_name = "\\foo1234";
+		int shm_fd;
+		//heres the file name..
+		char *file_name = strrchr(path, '/');
+		if (file_name[0] == '/')
+			file_name++;
 
-		printf("\n***RETRIEVED %s FROM SOCKET***\n",shm_fd);
+
+		printf("\n***WRITING %s TO SOCKET***\n",file_name);
+		write(hSocket,file_name, 256 * sizeof(char));
+
+		//ask for the file size so we can allocate memory efficiently
+		read(hSocket,&file_size,sizeof(file_size));
+		printf("\n***RETRIEVED %d BYTES FROM SOCKET***\n",file_size);
+
 
 		//do all the shared memory stuff here!!
 
+		//create shared mem
+		struct shm_data_struct shm_data;
+
+		shm_data.data_size = file_size;
+		printf("***shm.data.data_size = %d",file_size);
+		//SHOulD WE ADD 1?
+		shm_data.data = malloc(file_size);
+
+
+		//create
+		shm_fd = shm_open(shm_name,O_CREAT | O_RDWR,0666);
+		if(shm_fd == -1){
+			perror("fd_sh:ERROR");
+			return -1;
+		}
+		//set size
+		//ftruncate(shm_fd,sizeof(shm_data));
+		ftruncate(shm_fd, MAX_FILE_SIZE_BYTES);
+
+		void* shr_ptr;
+		//link
+		shr_ptr = mmap(0,sizeof(shm_data), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+		if (shr_ptr == MAP_FAILED) {
+			printf("Map failed\n");
+			return -1;
+		}
+
+
+		//create and init mutex
+		//pthread_mutexattr_t(&m_attr);
+		//pthread_mutexattr_set_pshared(&m_attr, _POSIX_THREAD_PROCESS_SHARED);
+		//pthread_mutex_init(&shm_data.m_shm,&m_attr);
+
+		shr_ptr = &shm_data;
+
+		//int shared_memory_size = sizeof(shm_data);
+
+		//tell simplecache where to write the file
+		printf("\n***WRITING (%s) NAME OF SHARED MEMORY TO SOCKET***\n",shm_name);
+		write(hSocket,shm_name, 256 * (sizeof(char)));
+
+		//tell simple cache how much memory to allocate for shared mem
+		//printf("\n***WRITING %ld SIZE OF SHARED MEMORY TO SOCKET***\n",sizeof(shm_data));
+		//write(hSocket,&shared_memory_size,sizeof(int));
+
+		//unlink
+		//if (shm_unlink(shm_name) == -1) {
+			//printf("Error removing %s\n",shm_name);
+			//exit(-1);
+		//}
+
+		printf("pointer: %p\n",shr_ptr);
+
+		//free this somewhere
+
+		//free(file_size);
 
 
 
-	}
 	//-----------------END SOCKET STUFF-------------------------
 
 	//2.) lock, copy saved by simplecached, unlock
@@ -113,12 +178,17 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		file_len = lseek(fildes, 0, SEEK_END);
 		lseek(fildes, 0, SEEK_SET);
 
+	}
+		//clean this up
+		file_len = file_size;
+
+
 		gfs_sendheader(ctx, GF_OK, file_len);
 
 		/* Sending the file contents chunk by chunk. */
 		bytes_transferred = 0;
 		while (bytes_transferred < file_len) {
-			read_len = read(fildes, buffer, 4096);
+			read_len = read(shm_fd, buffer, 4096);
 			if (read_len <= 0) {
 				fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len);
 				return EXIT_FAILURE;
