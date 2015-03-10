@@ -29,7 +29,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 	strcpy(buffer,data_dir);
 	strcat(buffer,path);
 
-	if(1==1) {
 		printf("***STARTING CACHE***\n");
 		//we may need to initialize this in web proxy according to instructions
 
@@ -202,7 +201,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		}
 
 		return bytes_transferred;
-	}
-	return 0;
+	//}
+	//return 0;
 }
 

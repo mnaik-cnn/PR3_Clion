@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 
-		printf("\nWaiting for a connection\n");
+		printf("\nBoss is waiting for a connection\n");
 		/* get the connected socket */
 		hSocket = accept(hServerSocket, (struct sockaddr *) &Address, (socklen_t *) &nAddressSize);
 		printf("\nGot a connection on socket %d\n", hSocket);
@@ -171,11 +171,11 @@ int main(int argc, char **argv) {
 		steque_item queue_item;
 		queue_item = &hSocket;
 
-		//pthread_mutex_lock(&m);
+		pthread_mutex_lock(&m);
 			steque_push(&connection_queue,queue_item);
-		//pthread_mutex_unlock(&m);
+		pthread_mutex_unlock(&m);
 
-		//pthread_cond_signal(&c_cache_get_connection);
+		pthread_cond_broadcast(&c_cache_get_connection);
 
 
 		printf("***QUEUE HAS %d ITEMS***\n",steque_size(&connection_queue));
@@ -184,14 +184,28 @@ int main(int argc, char **argv) {
 }
 void *doWorkWithSocket()
 {
+
 	//lock queue
 	while(1){
 
-		//while(steque_size(&connection_queue)==0) {
-			//pthread_cond_wait (&c_cache_get_connection, &m);
-		//}
+		printf("Thread is working.\n");
+		steque_item work_item;
 
-		if(steque_size(&connection_queue) > 0) {
+		pthread_mutex_lock (&m);
+		while(steque_size(&connection_queue)==0) {
+			printf("A thread is waiting.\n");
+			pthread_cond_wait (&c_cache_get_connection, &m);
+		}
+
+		work_item = steque_pop(&connection_queue);
+
+		printf("***QUEUE POPPED, HAS %d ITEMS***\n",steque_size(&connection_queue));
+		printf("A thread is has a work item.\n");
+
+		pthread_mutex_unlock(&m);
+
+
+		//if(steque_size(&connection_queue) > 0) {
 
 			char *file_name = malloc(256 * sizeof(char));
 			char *shm_name = malloc(256 * (sizeof(char)));
@@ -199,7 +213,7 @@ void *doWorkWithSocket()
 
 			//lock
 			//pthread_mutex_lock(&m);
-			steque_item work_item = steque_pop(&connection_queue);
+
 			//pthread_mutex_unlock(&m);
 			//unlock
 
@@ -256,16 +270,21 @@ void *doWorkWithSocket()
 			//printf("***SHARED MEM CASTED TO POINTER, STRUCT SIZE IS %ld***\n",sizeof(shm_data));
 
 
+			printf("\n***SENDING FILE FROM CACHE FILE DESC(%d) TO SHARED MEM FILE DESC (%d)***\n",cache_fd,shm_fd);
 			long FILE_REMAINING = file_len;
 			int SIZE_SENT = 0;
 			while (FILE_REMAINING > 0) {
 
-				SIZE_SENT = sendfile(shm_fd,cache_fd,NULL,file_len);
+
+				SIZE_SENT = sendfile(cache_fd,shm_fd,NULL,file_len);
+
 				FILE_REMAINING -= SIZE_SENT;
+				printf("***%ld BYTES REMINAING OUT OF %d***",FILE_REMAINING,file_len);
+
 
 				if (SIZE_SENT == -1) {
-					printf("something went wrong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
-					fprintf(stderr, "error.. %d of %d bytes sent\n", SIZE_SENT, file_len);
+					printf("\nsomething went wrong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
+					fprintf(stderr, "\nerror.. %d of %d bytes sent\n", SIZE_SENT, file_len);
 					exit(1);
 				}
 			}
@@ -274,17 +293,15 @@ void *doWorkWithSocket()
 				exit(1);
 			}
 
-
 			printf("***SIZE SENT: %d***\n",SIZE_SENT);
 			//we forgot to close socket, take care of this eventually
 
 			free(file_name);
 		}
-		}
-
 
 	return NULL;
 }
+
 
 
 	//2.) boss grab 1st data structure from socket....maybe includes the requested file name and file descriptor for shared memory segment
