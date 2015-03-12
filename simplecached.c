@@ -191,18 +191,21 @@ void *doWorkWithSocket()
 		printf("Thread is working.\n");
 		steque_item work_item;
 
+
+		//***********IF QUEUE IS EMPTY THEN WAIT****************
+		//ENTER CRITICAL SECTION
 		pthread_mutex_lock (&m);
-		while(steque_size(&connection_queue)==0) {
-			printf("A thread is waiting.\n");
-			pthread_cond_wait (&c_cache_get_connection, &m);
-		}
+			while(steque_isempty(&connection_queue)) {
+				printf("A thread is waiting.\n");
+				pthread_cond_wait (&c_cache_get_connection, &m);
+			}
 
-		work_item = steque_pop(&connection_queue);
-
-		printf("***QUEUE POPPED, HAS %d ITEMS***\n",steque_size(&connection_queue));
-		printf("A thread is has a work item.\n");
-
+			//POP ITEM
+			work_item = steque_pop(&connection_queue);
+			printf("***QUEUE POPPED, HAS %d ITEMS***\n",steque_size(&connection_queue));
+			printf("A thread is has a work item.\n");
 		pthread_mutex_unlock(&m);
+		//EXIT CRITICAL SECTION
 
 
 		//if(steque_size(&connection_queue) > 0) {
@@ -211,12 +214,7 @@ void *doWorkWithSocket()
 			char *shm_name = malloc(256 * (sizeof(char)));
 			//int shared_memory_size = 1500;
 
-			//lock
-			//pthread_mutex_lock(&m);
-
-			//pthread_mutex_unlock(&m);
-			//unlock
-
+			//*******GET SOCKET FROM WORK ITEM QUEUE*******
 			int hSocket = *(int *) work_item;
 
 			printf("A thread has socket %d\n", hSocket);
@@ -248,7 +246,6 @@ void *doWorkWithSocket()
 			int shm_fd;
 			void *ptr;
 
-
 			/* open the shared memory segment */
 			shm_fd = shm_open(shm_name, O_RDWR, 0666);
 			if (shm_fd == -1) {
@@ -267,8 +264,11 @@ void *doWorkWithSocket()
 			printf("pointer: %p\n",ptr);
 			//truct shm_data_struct shm_data = *(struct shm_data_struct*)ptr;
 
+
 			//printf("***SHARED MEM CASTED TO POINTER, STRUCT SIZE IS %ld***\n",sizeof(shm_data));
 
+
+			//*********************WRITE FILE TO SHARED MEMORY *************************
 
 			printf("\n***SENDING FILE FROM CACHE FILE DESC(%d) TO SHARED MEM FILE DESC (%d)***\n",cache_fd,shm_fd);
 			long FILE_REMAINING = file_len;
