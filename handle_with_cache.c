@@ -19,6 +19,16 @@
 //extern int simplecache_init(char *filename);
 //int simplecache_get(char *key);
 
+
+void display(char *prog, char *bytes, int n);
+void display(char *prog, char *bytes, int n)
+{
+	printf("display: %s\n", prog);
+	for (int i = 0; i < n; i++)
+	{ printf("%02x%c", bytes[i], ((i+1)%16) ? ' ' : '\n'); }
+	printf("\n");
+}
+
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 	int fildes;
 	size_t file_len, bytes_transferred;
@@ -70,7 +80,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 			return 0;
 		}
 
-
 		//LOOK HERE!
 
 		//CREATE SHARED MEM
@@ -87,22 +96,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//strcpy(file_name,".");
 		strcat(file_name,path);
 
-
-
-
-
-
-		//do all the shared memory stuff here!!
-
-		//create shared mem
-		//struct shm_data_struct shm_data;
-
-		//shm_data.data_size = file_size;
-		printf("***shm.data.data_size = %d",file_size);
-		//SHOulD WE ADD 1?
-		//shm_data.data = malloc(file_size);
-
-
 		//create
 		shm_fd = shm_open(shm_name,O_CREAT | O_RDWR,0666);
 		if(shm_fd == -1){
@@ -113,22 +106,16 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//ftruncate(shm_fd,sizeof(shm_data));
 		ftruncate(shm_fd, MAX_FILE_SIZE_BYTES);
 
-
-
 		//void* shr_ptr;
 		//link
-	    struct shm_data_struct* shm_data = mmap(0, MAX_FILE_SIZE_BYTES,O_RDWR, MAP_SHARED, shm_fd, 0);
-		if (shm_data == MAP_FAILED) {
+	    //struct shm_data_struct* shm_data =
+	    void* test_string = mmap(0, MAX_FILE_SIZE_BYTES,O_RDWR, MAP_SHARED, shm_fd, 0);
+		if (test_string == MAP_FAILED) {
 			printf("Map failed\n");
 			return -1;
 		}
 
-
-		shm_data->data = malloc(256);
-				shm_data->data = "set in handle w cache!!!!!!!!!!!!!\0";
-
-
-
+		//test_string = "holla for a dolla";
 
 		//create and init mutex
 		//pthread_mutexattr_t(&m_attr);
@@ -161,9 +148,13 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		//free(file_size);
 
+		//sleep(1);
 
-		sleep(1);
-		printf("***\nSHM DATA is %s\n***",shm_data->data);
+		msync(test_string, MAX_FILE_SIZE_BYTES,MS_SYNC| MS_INVALIDATE);
+	    //display("cons", test_string, 64);
+		printf("***\nSHM DATA is %s\n***",(char*)test_string);
+
+
 
 
 	//-----------------END SOCKET STUFF-------------------------
@@ -189,8 +180,11 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		file_len = lseek(fildes, 0, SEEK_END);
 		lseek(fildes, 0, SEEK_SET);
 
-	}
+
 		//clean this up
+
+
+
 		file_len = file_size;
 
 
@@ -219,12 +213,11 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//exit(-1);
 		//}
 
-
 		free(file_name);
 
 
 		return bytes_transferred;
-	//}
-	//return 0;
+	}
+	return 0;
 }
 

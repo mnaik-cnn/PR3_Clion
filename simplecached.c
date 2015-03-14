@@ -123,8 +123,6 @@ int main(int argc, char **argv) {
 
 	printf("\n***NUM CACHE THREADS: %d***\n", nthreads);
 
-
-
 	//1.)boss thread gets connection, sends details to thread and spins it up
 	//-----------------------!!!SOCKET STUFF!!!-----------------------
 	int hServerSocket;
@@ -175,9 +173,7 @@ int main(int argc, char **argv) {
 		pthread_mutex_lock(&m);
 			steque_push(&connection_queue,queue_item);
 		pthread_mutex_unlock(&m);
-
 		pthread_cond_broadcast(&c_cache_get_connection);
-
 
 		printf("***QUEUE HAS %d ITEMS***\n",steque_size(&connection_queue));
 
@@ -185,13 +181,11 @@ int main(int argc, char **argv) {
 }
 void *doWorkWithSocket()
 {
-
 	//lock queue
 	while(1){
 
 		printf("Thread is working.\n");
 		steque_item work_item;
-
 
 		//***********IF QUEUE IS EMPTY THEN WAIT****************
 		//ENTER CRITICAL SECTION
@@ -207,16 +201,12 @@ void *doWorkWithSocket()
 			printf("A thread is has a work item.\n");
 		pthread_mutex_unlock(&m);
 		//EXIT CRITICAL SECTION
-
-
 		//if(steque_size(&connection_queue) > 0) {
 
 			char *full_file_path = malloc(256 * sizeof(char));
 			char *file_name = malloc(256 * sizeof(char));
 			char *shm_name = malloc(256 * (sizeof(char)));
 			//int shared_memory_size = 1500;
-
-
 
 			//*******GET SOCKET FROM WORK ITEM QUEUE*******
 			int hSocket = *(int *) work_item;
@@ -240,8 +230,6 @@ void *doWorkWithSocket()
 
 			printf("\n***FULL FILE PATH: %s\n",full_file_path);
 
-
-
 			//RECEIVE FILE DESCRIPTOR
 			read(hSocket, shm_name, 256 * sizeof(char));
 			printf("\n***MEMORY SHARE IS NAMED %s***\n",shm_name);
@@ -252,9 +240,7 @@ void *doWorkWithSocket()
 			//printf("\n***SHARED MEM SIZE TO ALLOCATE IS %d***\n",shared_memory_size);
 
 			//get from cache and read into shared memory
-			int shm_fd;
-
-
+		int shm_fd;
 
 		int cache_fd = simplecache_get(full_file_path);
 
@@ -266,6 +252,8 @@ void *doWorkWithSocket()
 		//get file, return file size
 
 
+		char *shm_base_addr;	// base address, from mmap()
+		//char *ptr;		// shm_base is fixed, ptr is movable
 
 			/* open the shared memory segment */
 			shm_fd = shm_open(shm_name, O_RDWR, 0666);
@@ -275,27 +263,33 @@ void *doWorkWithSocket()
 			}
 
 			/* now map the shared memory segment in the address space of the process */
-			struct shm_data_struct *shm_data = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
+			shm_base_addr = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
 			// ptr = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
-			if (shm_data == MAP_FAILED) {
+			if (shm_base_addr == MAP_FAILED) {
 				printf("Map failed %s\n", strerror(errno));
 
 				exit(-1);
 			}
 
+			printf("writing to shared memory\n");
+
+			struct shm_data_struct *data = malloc(MAX_FILE_SIZE_BYTES);
+			data->data_size = file_len;
+			data->data = "check me out doe";
+
+		    char* ptr = shm_base_addr;
+		    ptr += sprintf(ptr,"%s", "who else seen da leprechaun");
+			printf("ptr: %s\n",shm_base_addr);
+
+			munmap(shm_base_addr, MAX_FILE_SIZE_BYTES);
 
 
-			//printf("pointer: %p\n",ptr);
-			//struct shm_data_struct shm_data;
-			//shm_data->data = malloc(256);
-			shm_data->data = "look at me!";
-			shm_data->data_size = file_len;
+
 			//ptr = &shm_data;
 
 			//write(hSocket,"OK",256 * sizeof(char));
 
 			//printf("***SHARED MEM CASTED TO POINTER, STRUCT SIZE IS %ld***\n",sizeof(shm_data));
-
 
 			//*********************WRITE FILE TO SHARED MEMORY *************************
 
@@ -313,7 +307,7 @@ void *doWorkWithSocket()
 
 
 				if (SIZE_SENT == -1) {
-					printf("\nsomething went wrong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
+					printf("\nsomething went ong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
 					fprintf(stderr, "\nerror.. %d of %d bytes sent\n", SIZE_SENT, file_len);
 					exit(1);
 				}
@@ -330,6 +324,8 @@ void *doWorkWithSocket()
 
 			free(file_name);
 		free(shm_name);
+		free(full_file_path);
+		free(data);
 		}
 
 	return NULL;
