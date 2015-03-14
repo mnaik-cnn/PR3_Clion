@@ -140,7 +140,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		//ask for the file size so we can allocate memory efficiently
 		read(hSocket,&file_size,sizeof(file_size));
-		printf("\n***RETRIEVED %d BYTES FROM SOCKET***\n",file_size);
+		printf("\n***RETRIEVED \"%d BYTES\" FROM SOCKET***\n",file_size);
 
 		//printf("pointer: %p\n",shr_ptr);
 
@@ -148,13 +148,11 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		//free(file_size);
 
-		//sleep(1);
+		sleep(5);
 
 		msync(test_string, MAX_FILE_SIZE_BYTES,MS_SYNC| MS_INVALIDATE);
-	    //display("cons", test_string, 64);
+	    display("cons", test_string, 64);
 		printf("***\nSHM DATA is %s\n***",(char*)test_string);
-
-
 
 
 	//-----------------END SOCKET STUFF-------------------------
@@ -165,45 +163,51 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 	//3.) send the file from the shared memory desciptor,
 	// sending file back to client
-
-    if(1==2) {
-		if (0 > (fildes = open(buffer, O_RDONLY))) {
-			if (errno == ENOENT)
+    file_len = file_size;
+	printf("\n***SEND FILE BACK TO CLIENT***\n");
+    if(1==1) {
+		if (0 > (fildes = open(test_string, O_RDONLY))) {
+			if (errno == ENOENT) {
 				/* If the file just wasn't found, then send FILE_NOT_FOUND code*/
+				printf("\n***SEND F_N_F BACK TO CLIENT***\n");
 				return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
-			else
-				/* Otherwise, it must have been a server error. gfserver library will handle*/
-				return EXIT_FAILURE;
+			}
+			//else {
+			//printf("\n***SERVER ERROR***\n");
+			///* Otherwise, it must have been a server error. gfserver library will handle*/
+			//return EXIT_FAILURE;
+			//}
 		}
 
 		/* Calculating the file size */
-		file_len = lseek(fildes, 0, SEEK_END);
-		lseek(fildes, 0, SEEK_SET);
+		//file_len = lseek(fildes, 0, SEEK_END);
+		//printf("\n***FILE DES SAYS FILE IS %ld***\n",file_len);
+		//lseek(fildes, 0, SEEK_SET);
 
 
 		//clean this up
 
 
 
-		file_len = file_size;
-
-
+		printf("\n***SEND GF_OK BACK TO CLIENT***\n");
 		gfs_sendheader(ctx, GF_OK, file_len);
 
+		printf("\n***BEGIN TRANSFER***\n");
 		/* Sending the file contents chunk by chunk. */
 		bytes_transferred = 0;
 		while (bytes_transferred < file_len) {
-			read_len = read(shm_fd, buffer, 4096);
+			read_len = read(shm_fd, test_string, 4096);
 			if (read_len <= 0) {
 				fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len);
 				return EXIT_FAILURE;
 			}
-			write_len = gfs_send(ctx, buffer, read_len);
+			write_len = gfs_send(ctx, test_string, read_len);
 			if (write_len != read_len) {
 				fprintf(stderr, "handle_with_file write error");
 				return EXIT_FAILURE;
 			}
 			bytes_transferred += write_len;
+			printf("***%ld BYTES TRANSFERRED OUT OF %ld***", bytes_transferred, file_len);
 		}
 
 
@@ -218,6 +222,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		return bytes_transferred;
 	}
+
 	return 0;
 }
 

@@ -182,151 +182,158 @@ int main(int argc, char **argv) {
 void *doWorkWithSocket()
 {
 	//lock queue
-	while(1){
+	while(1) {
 
 		printf("Thread is working.\n");
 		steque_item work_item;
 
 		//***********IF QUEUE IS EMPTY THEN WAIT****************
 		//ENTER CRITICAL SECTION
-		pthread_mutex_lock (&m);
-			while(steque_isempty(&connection_queue)) {
-				printf("A thread is waiting.\n");
-				pthread_cond_wait (&c_cache_get_connection, &m);
-			}
+		pthread_mutex_lock(&m);
+		while (steque_isempty(&connection_queue)) {
+			printf("A thread is waiting.\n");
+			pthread_cond_wait(&c_cache_get_connection, &m);
+		}
 
-			//POP ITEM
-			work_item = steque_pop(&connection_queue);
-			printf("***QUEUE POPPED, HAS %d ITEMS***\n",steque_size(&connection_queue));
-			printf("A thread is has a work item.\n");
+		//POP ITEM
+		work_item = steque_pop(&connection_queue);
+		printf("***QUEUE POPPED, HAS %d ITEMS***\n", steque_size(&connection_queue));
+		printf("A thread is has a work item.\n");
 		pthread_mutex_unlock(&m);
 		//EXIT CRITICAL SECTION
 		//if(steque_size(&connection_queue) > 0) {
 
-			char *full_file_path = malloc(256 * sizeof(char));
-			char *file_name = malloc(256 * sizeof(char));
-			char *shm_name = malloc(256 * (sizeof(char)));
-			//int shared_memory_size = 1500;
+		char *full_file_path = malloc(256 * sizeof(char));
+		char *file_name = malloc(256 * sizeof(char));
+		char *shm_name = malloc(256 * (sizeof(char)));
+		//int shared_memory_size = 1500;
 
-			//*******GET SOCKET FROM WORK ITEM QUEUE*******
-			int hSocket = *(int *) work_item;
+		//*******GET SOCKET FROM WORK ITEM QUEUE*******
+		int hSocket = *(int *) work_item;
 
-			printf("A thread has socket %d\n", hSocket);
+		printf("A thread has socket %d\n", hSocket);
 
-			//LOOK HERE!
-			//RECEIVE FILE NAME
-			read(hSocket, file_name, 256 * (sizeof(char)));
-			printf("\n***FILE TO PLACE IN SHARED MEM IS %s***\n", file_name);
+		//LOOK HERE!
+		//RECEIVE FILE NAME
+		read(hSocket, file_name, 256 * (sizeof(char)));
+		printf("\n***FILE TO PLACE IN SHARED MEM IS %s***\n", file_name);
 
-			full_file_path[0] = '\0';
-			//full_file_path = strrchr(file_name, './');
-	     	//strcpy(full_file_path,".");
-			strcat(full_file_path,file_name);
+		full_file_path[0] = '\0';
+		//full_file_path = strrchr(file_name, './');
+		//strcpy(full_file_path,".");
+		strcat(full_file_path, file_name);
 
-			//if (full_file_path[0] == '/') {
-				//full_file_path++;
+		//if (full_file_path[0] == '/') {
+		//full_file_path++;
 
-			//}
+		//}
 
-			printf("\n***FULL FILE PATH: %s\n",full_file_path);
+		printf("\n***FULL FILE PATH: %s\n", full_file_path);
 
-			//RECEIVE FILE DESCRIPTOR
-			read(hSocket, shm_name, 256 * sizeof(char));
-			printf("\n***MEMORY SHARE IS NAMED %s***\n",shm_name);
+		//RECEIVE FILE DESCRIPTOR
+		read(hSocket, shm_name, 256 * sizeof(char));
+		printf("\n***MEMORY SHARE IS NAMED %s***\n", shm_name);
 
 
-			//get how much memory to allocate for shared mem
-			//write(hSocket,&shared_memory_size, sizeof(shared_memory_size));
-			//printf("\n***SHARED MEM SIZE TO ALLOCATE IS %d***\n",shared_memory_size);
+		//get how much memory to allocate for shared mem
+		//write(hSocket,&shared_memory_size, sizeof(shared_memory_size));
+		//printf("\n***SHARED MEM SIZE TO ALLOCATE IS %d***\n",shared_memory_size);
 
-			//get from cache and read into shared memory
+		//get from cache and read into shared memory
 		int shm_fd;
 
 		int cache_fd = simplecache_get(full_file_path);
 
-		printf("\n***CACHE FILE DESCRIPTOR IS %d***\n",cache_fd);
+		printf("\n***CACHE FILE DESCRIPTOR IS %d***\n", cache_fd);
 		//calculate and return file size
 		int file_len = lseek(cache_fd, 0, SEEK_END);
-		printf("\n***FILE SIZE TO SEND S %d***\n",file_len);
-		write(hSocket,&file_len, sizeof(file_len));
+		printf("\n***FILE SIZE TO SEND S %d***\n", file_len);
+		write(hSocket, &file_len, sizeof(file_len));
 		//get file, return file size
 
 
-		char *shm_base_addr;	// base address, from mmap()
+		char *shm_base_addr;    // base address, from mmap()
 		//char *ptr;		// shm_base is fixed, ptr is movable
 
-			/* open the shared memory segment */
-			shm_fd = shm_open(shm_name, O_RDWR, 0666);
-			if (shm_fd == -1) {
-				printf("shared memory failed %s\n",strerror(errno));
-				exit(-1);
+		/* open the shared memory segment */
+		shm_fd = shm_open(shm_name, O_RDWR, 0666);
+		if (shm_fd == -1) {
+			printf("shared memory failed %s\n", strerror(errno));
+			exit(-1);
+		}
+
+		/* now map the shared memory segment in the address space of the process */
+		shm_base_addr = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
+		// ptr = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
+		if (shm_base_addr == MAP_FAILED) {
+			printf("Map failed %s\n", strerror(errno));
+
+			exit(-1);
+		}
+
+		printf("writing to shared memory\n");
+
+		char *ptr = shm_base_addr;
+		ptr += sprintf(ptr, "%s", "who else seen da leprechaun");
+		printf("ptr: %s\n", shm_base_addr);
+
+
+
+
+		//ptr = &shm_data;
+
+		//write(hSocket,"OK",256 * sizeof(char));
+
+		//printf("***SHARED MEM CASTED TO POINTER, STRUCT SIZE IS %ld***\n",sizeof(shm_data));
+
+		//*********************WRITE FILE TO SHARED MEMORY *************************
+
+		char *temp_buffer = malloc(file_len);
+
+
+		printf("\n***READING FILE FROM CACHE FILE DESC(%d) TO BUFFER - SAVING TO SHARED MEM FILE DESC (%d)***\n", cache_fd, shm_fd);
+		size_t FILE_REMAINING = file_len;
+
+		ssize_t TOTAL_SIZE_SENT = 0;
+		ssize_t SIZE_SENT = 0;
+		while (FILE_REMAINING > 0) {
+			if (FILE_REMAINING >= 4096) {
+				SIZE_SENT = pread(cache_fd, temp_buffer, 4096, 0);
+				printf("***WROTE %ld BYTES OUT OF %ld***\n",SIZE_SENT,FILE_REMAINING);
 			}
-
-			/* now map the shared memory segment in the address space of the process */
-			shm_base_addr = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
-			// ptr = mmap(0, MAX_FILE_SIZE_BYTES, O_RDWR, MAP_SHARED, shm_fd, 0);
-			if (shm_base_addr == MAP_FAILED) {
-				printf("Map failed %s\n", strerror(errno));
-
-				exit(-1);
+			else {
+				SIZE_SENT = pread(cache_fd, temp_buffer, FILE_REMAINING, 0);
+				printf("***WROTE %ld BYTES OUT OF %ld***\n",SIZE_SENT,FILE_REMAINING);
 			}
+			printf("***TOTAL SIZE SENT: %ld***\n", TOTAL_SIZE_SENT);
+			TOTAL_SIZE_SENT += SIZE_SENT;
+			FILE_REMAINING = FILE_REMAINING - SIZE_SENT;
+			printf("***%ld BYTES REMINAING OUT OF %d***\n", FILE_REMAINING, file_len);
 
-			printf("writing to shared memory\n");
-
-			struct shm_data_struct *data = malloc(MAX_FILE_SIZE_BYTES);
-			data->data_size = file_len;
-			data->data = "check me out doe";
-
-		    char* ptr = shm_base_addr;
-		    ptr += sprintf(ptr,"%s", "who else seen da leprechaun");
-			printf("ptr: %s\n",shm_base_addr);
-
-			munmap(shm_base_addr, MAX_FILE_SIZE_BYTES);
-
-
-
-			//ptr = &shm_data;
-
-			//write(hSocket,"OK",256 * sizeof(char));
-
-			//printf("***SHARED MEM CASTED TO POINTER, STRUCT SIZE IS %ld***\n",sizeof(shm_data));
-
-			//*********************WRITE FILE TO SHARED MEMORY *************************
-
-		while(1==2) {
-			printf("\n***SENDING FILE FROM CACHE FILE DESC(%d) TO SHARED MEM FILE DESC (%d)***\n", cache_fd, shm_fd);
-			long FILE_REMAINING = file_len;
-			int SIZE_SENT = 0;
-			while (FILE_REMAINING > 0) {
-
-
-				SIZE_SENT = sendfile(cache_fd, shm_fd, NULL, file_len);
-
-				FILE_REMAINING -= SIZE_SENT;
-				printf("***%ld BYTES REMINAING OUT OF %d***", FILE_REMAINING, file_len);
-
-
-				if (SIZE_SENT == -1) {
-					printf("\nsomething went ong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
-					fprintf(stderr, "\nerror.. %d of %d bytes sent\n", SIZE_SENT, file_len);
-					exit(1);
-				}
-			}
-			if (SIZE_SENT != file_len) {
-				fprintf(stderr, "incomplete transfer from sendfile: %d of %d bytes\n", SIZE_SENT, file_len);
+			if (SIZE_SENT == -1) {
+				printf("\nsomething went ong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
+				fprintf(stderr, "\nerror.. %ld of %d bytes sent\n", SIZE_SENT, file_len);
 				exit(1);
 			}
-
-			printf("***SIZE SENT: %d***\n", SIZE_SENT);
-			//we forgot to close socket, take care of this eventually
 		}
 
+		if (TOTAL_SIZE_SENT != file_len) {
+			fprintf(stderr, "incomplete transfer from sendfile: %ld of %d bytes\n", SIZE_SENT, file_len);
+			exit(1);
+		}
 
-			free(file_name);
+		printf("***SIZE SENT: %ld***\n", SIZE_SENT);
+		//we forgot to close socket, take care of this eventually
+
+		memcpy(shm_base_addr, temp_buffer, file_len);
+		munmap(shm_base_addr, MAX_FILE_SIZE_BYTES);
+
+
+		free(file_name);
 		free(shm_name);
 		free(full_file_path);
-		free(data);
-		}
+
+	}
 
 	return NULL;
 }
