@@ -27,9 +27,13 @@
 //***********SHARED MEM************
 
 struct shm_data_struct{
-    pthread_mutex_t m_shm;
+    pthread_mutex_t m_shm_read;
+    pthread_mutex_t m_shm_write;
     char* data;
-    ssize_t data_size;
+    //buffer should size should equal segment size - structure size
+    ssize_t segment_size;
+    ssize_t buffer_size;
+    ssize_t file_size;
 };
 
 

@@ -19,12 +19,26 @@
 "special options:\n"                                                          \
 "  -d [drop_factor]    Drop connects if f*t pending requests (Default: 5).\n"
 
+\
+#define NEW_USAGE\
+"usage:\n"                                                     \
+"        webproxy [options]\n"                                 \
+"options:\n"                                                   \
+"-n number of segments to use in communication with cache.\n"  \
+"-z the size (in bytes) of the segments.\n"                    \
+"-p port for incoming requests\n"                              \
+"-t number of worker threads\n"                                \
+"-s server address(e.g. 'localhost:8080', or 'example.com')\n" \
+"-h print a help message\n"
+
 
 /* OPTIONS DESCRIPTOR ====================================================== */
 static struct option gLongOptions[] = {
   {"port",          required_argument,      NULL,           'p'},
   {"thread-count",  required_argument,      NULL,           't'},
   {"server",        required_argument,      NULL,           's'},         
+  {"num-segments",  required_argument,            NULL,     'n'},
+  {"segment size",  required_argument,            NULL,     'z'},
   {"help",          no_argument,            NULL,           'h'},
   {NULL,            0,                      NULL,             0}
 };
@@ -48,6 +62,9 @@ int main(int argc, char **argv) {
   int i, option_char = 0;
   unsigned short port = 8888;
   unsigned short nworkerthreads = 1;
+  unsigned short num_segments;
+  long segment_size;
+
   char *server = "s3.amazonaws.com/content.udacity-data.com";
 
   if (signal(SIGINT, _sig_handler) == SIG_ERR){
@@ -71,13 +88,19 @@ int main(int argc, char **argv) {
         break;
       case 's': // file-path
         server = optarg;
-        break;                                          
+        break;
+      case 'n': // file-path
+        num_segments = optarg;
+        break;
+      case 'z': // file-path
+        segment_size = optarg;
+        break;
       case 'h': // help
-        fprintf(stdout, "%s", USAGE);
+        fprintf(stdout, "%s", NEW_USAGE);
         exit(0);
         break;       
       default:
-        fprintf(stderr, "%s", USAGE);
+        fprintf(stderr, "%s", NEW_USAGE);
         exit(1);
     }
   }
@@ -97,8 +120,12 @@ int main(int argc, char **argv) {
 
   for(i = 0; i < nworkerthreads; i++)
     //gfs.contexts->arg = server;
-    //send a data structure as an argument, file name and shared memory descriptor
+    //send queue of shared memory to handler
     gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);
+
+
+
+
 
   /*Loops forever*/
   gfserver_serve(&gfs);
