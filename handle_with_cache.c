@@ -40,14 +40,22 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 	//strcpy(buffer,data_dir);
 	//strcat(buffer,path);
 
-		printf("***STARTING CACHE***\n");
+		printf("***STARTING HANDLER ROUTINE***\n");
 		//we may need to initialize this in web proxy according to instructions
 
-		//a request has come in, as the call back, we need to retrieve a shared memory descriptor
+		int shm_fd;
+		int file_size = 0;
 
+		//*****IMPORTANT******
+		//****SHM_NAME WILL NOW BE THE SHARED SEGMENT PASSED TO US BY WEB_PROXY****
+		//****WE MAY ONLY USE THIS ONE SEGMENT***
+		struct shm_information info = *(struct shm_information *)arg;
+
+		//a request has come in, as the call back, we need to retrieve a shared memory descriptor
+		printf("did we get this far? segment: %s\n\n",info.segment_name);
 		//1.) communicate request via socket to simplecached, the file name and the file descriptor
 		//hard code connection info
-		char *server_address = "0.0.0.0";
+		char *server_address = info.cache_server_addr;
 		int nHostPort = 8887;
 		int hSocket;                 /* handle to socket */
 		struct hostent *pHostInfo;   /* holds info about a machine */
@@ -79,14 +87,9 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 			printf("\nCould not connect to host\n");
 			return 0;
 		}
-		//LOOK HERE!
-		//CREATE SHARED MEM
-		// SEND SHARED MEM FD AND FILE NAME
 
-		int file_size = 0;
-		char* shm_name = "foo12345";
-		int shm_fd;
-		//heres the file name..
+
+		//......here's the file name..
 		char *file_name = malloc(256);//strrchr(path, '/');
 		//if (file_name[0] == '/')
 			//file_name++;
@@ -94,30 +97,39 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//strcpy(file_name,".");
 		strcat(file_name,path);
 
-
-		//*******CREATE SHARED MEMORY SEGMENT********
-		shm_fd = shm_open(shm_name,O_CREAT | O_RDWR,0666);
-		if(shm_fd == -1){
+		//*********OPEN STRUCTURE**********
+		shm_fd = shm_open(info.segment_name, O_CREAT | O_RDWR, 0666);
+		if (shm_fd == -1) {
 			perror("fd_sh:ERROR");
 			return -1;
 		}
-		//*******TRUNCATE TO SEGMENT SIZE VALUE*********
-		ftruncate(shm_fd, MAX_FILE_SIZE_BYTES);
+
 
 		//*******MAP STRUCTURE TO SEGMENT*********
-	    struct shm_data_struct* chunk_recv = mmap(0, MAX_FILE_SIZE_BYTES,O_RDWR, MAP_SHARED, shm_fd, 0);
+	    struct shm_data_struct* chunk_recv = mmap(0,info.segment_size,O_RDWR, MAP_SHARED, shm_fd, 0);
 	    //void* test_string = mmap(0, MAX_FILE_SIZE_BYTES,O_RDWR, MAP_SHARED, shm_fd, 0);
 		if (chunk_recv == MAP_FAILED) {
 			printf("Map failed\n");
 			return -1;
 		}
 
+		//initalize mutexes here
 
-	    //char* test_string = malloc(chunk_recv->file_size);
-		//memcpy(test_string,chunk_recv->data,chunk_recv-file_size);
 
-		//test_string = "holla for a dolla";
+		pthread_mutexattr_t mutex_attr;
+		pthread_mutexattr_init(&mutex_attr);
+		pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
+		pthread_mutex_init(&chunk_recv->m, &mutex_attr);
 
+		pthread_condattr_t cond_attr_read;
+		pthread_condattr_init(&cond_attr_read);
+		pthread_condattr_setpshared(&cond_attr_read, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(&chunk_recv->cond_shm_read, &cond_attr_read);
+
+		pthread_condattr_t cond_attr_write;
+		pthread_condattr_init(&cond_attr_write);
+		pthread_condattr_setpshared(&cond_attr_write, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(&chunk_recv->cond_shm_write, &cond_attr_write);
 		//create and init mutex
 		//pthread_mutexattr_t(&m_attr);
 		//pthread_mutexattr_set_pshared(&m_attr, _POSIX_THREAD_PROCESS_SHARED);
@@ -126,17 +138,20 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//int shared_memory_size = sizeof(shm_data);
 
 
-	printf("\n***WRITING %s TO SOCKET***\n",file_name);
-	write(hSocket,file_name, 256 * sizeof(char));
+	    printf("\n***WRITING %s TO SOCKET***\n",file_name);
+	    write(hSocket,file_name, 256 * sizeof(char));
 
 		//tell simplecache where to write the file
-		printf("\n***WRITING (%s) NAME OF SHARED MEMORY TO SOCKET***\n",shm_name);
-		write(hSocket,shm_name, 256 * (sizeof(char)));
+		printf("\n***WRITING (%s) NAME OF SHARED MEMORY TO SOCKET***\n",info.segment_name);
+		write(hSocket,info.segment_name, 256 * (sizeof(char)));
+
+		//tell simplecache the size of the file the file
+		printf("\n***WRITING (%d) SIZE OF SHARED MEMORY TO SOCKET***\n",info.segment_size);
+		write(hSocket,&info.segment_size,sizeof(int));
 
 		//tell simple cache how much memory to allocate for shared mem
 		//printf("\n***WRITING %ld SIZE OF SHARED MEMORY TO SOCKET***\n",sizeof(shm_data));
 		//write(hSocket,&shared_memory_size,sizeof(int));
-
 
 		//ask for the file size so we can allocate memory efficiently
 		read(hSocket,&file_size,sizeof(file_size));
@@ -148,13 +163,48 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		//free(file_size);
 
-		sleep(5);
+		sleep(2);
+		file_len = file_size;
 
-		msync(chunk_recv, MAX_FILE_SIZE_BYTES,MS_SYNC| MS_INVALIDATE);
 
+		msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
+		//int transfer_size = chunk_recv->buffer_size;
+		int transfer_size = info.segment_size - sizeof(chunk_recv);
+	    printf("TRANSFER SIZE: %d\n",transfer_size);
 	    //display("cons", test_string, 64);
-		char* test_string = (char*)&chunk_recv->data;//,chunk_recv->file_size);
-		printf("***\nSHM DATA is %s\n***",test_string);
+
+		int ptr_count = 0;
+		ssize_t FILE_REMAINING = file_len;
+
+
+		char* full_buffer = malloc(file_len);
+
+		while(FILE_REMAINING > 0){
+
+			//msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
+			//pthread_cond_wait (&chunk_recv->cond_shm_read, &chunk_recv->m);
+			if(FILE_REMAINING < transfer_size)
+			{
+				transfer_size = FILE_REMAINING;
+			}
+			pthread_mutex_lock(&chunk_recv->m);
+			printf("***HANDLER LOCKED***\n");
+				char* temp_buffer = (char*)&chunk_recv->data;//,chunk_recv->file_size);
+			pthread_mutex_unlock(&chunk_recv->m);
+			printf("***HANDLER UNLOCKED***\n");
+			pthread_cond_signal(&chunk_recv->cond_shm_write);
+			printf("***CACHE SIGNALED***\n");
+			memcpy(full_buffer,temp_buffer + ptr_count,transfer_size);
+			FILE_REMAINING -= transfer_size;
+			printf("***FILE REMAINING: %ld***\n",FILE_REMAINING);
+			ptr_count += transfer_size;
+	    }
+			//loop
+
+
+
+
+		printf("***\nSHM DATA is %s\n***",full_buffer);
 
 
 
@@ -166,7 +216,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 	//3.) send the file from the shared memory desciptor,
 	// sending file back to client
-    file_len = file_size;
+
 	printf("\n***SEND FILE BACK TO CLIENT***\n");
     //if(1==1) {
 		//if (0 > (fildes = open((char*)&chunk_recv->data, O_RDONLY))) {
@@ -201,20 +251,20 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		printf("\n***BEGIN TRANSFER***\n");
 		/* Sending the file contents chunk by chunk. */
 		bytes_transferred = 0;
-		ssize_t FILE_REMAINING = file_len;
+		FILE_REMAINING = file_len;
 		//while (bytes_transferred < file_len) {
 		while (FILE_REMAINING > 0) {
 			if(FILE_REMAINING >= transf_amt) {
 				printf("***FILE REMAINING > 1024***");
 				//read_len = pread(shm_fd, test_string,transf_amt,0);
-				write_len = gfs_send(ctx, test_string + cur_ptr, transf_amt);
+				write_len = gfs_send(ctx, full_buffer + cur_ptr, transf_amt);
 				read_len = write_len;
 				cur_ptr += write_len;
 			}
 			else{
 				printf("***FILE REMAINING < 1024...ONLY %ld***\n",FILE_REMAINING);
 				//read_len = pread(shm_fd, test_string,FILE_REMAINING,0);
-				write_len = gfs_send(ctx, test_string + cur_ptr,FILE_REMAINING);
+				write_len = gfs_send(ctx, full_buffer + cur_ptr,FILE_REMAINING);
 				read_len = write_len;
 				cur_ptr += write_len;
 			}
@@ -241,6 +291,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//}
 
 		free(file_name);
+		free(full_buffer);
 
 
 		return bytes_transferred;

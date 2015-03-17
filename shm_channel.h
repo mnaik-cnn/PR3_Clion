@@ -26,9 +26,18 @@
 
 //***********SHARED MEM************
 
+struct shm_information {
+    char* cache_server_addr;
+    int segment_size;
+    char* segment_name;
+};
+
+
 struct shm_data_struct{
-    pthread_mutex_t m_shm_read;
-    pthread_mutex_t m_shm_write;
+    pthread_mutex_t m;
+    pthread_cond_t  cond_shm_read;
+    pthread_cond_t  cond_shm_write;
+
     char* data;
     //buffer should size should equal segment size - structure size
     ssize_t segment_size;
