@@ -90,7 +90,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 
 		//......here's the file name..
-		char *file_name = malloc(256);//strrchr(path, '/');
+		char file_name[256];//strrchr(path, '/');
 		//if (file_name[0] == '/')
 			//file_name++;
 		file_name[0] = '\0';
@@ -136,7 +136,8 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//pthread_mutex_init(&shm_data.m_shm,&m_attr);
 
 		//int shared_memory_size = sizeof(shm_data);
-
+		int transfer_size = info.segment_size - sizeof(chunk_recv);
+		printf("TRANSFER SIZE: %d\n",transfer_size);
 
 	    printf("\n***WRITING %s TO SOCKET***\n",file_name);
 	    write(hSocket,file_name, 256 * sizeof(char));
@@ -163,36 +164,51 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		//free(file_size);
 
-		sleep(2);
+
 		file_len = file_size;
 
 
-		msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
+
 		//int transfer_size = chunk_recv->buffer_size;
-		int transfer_size = info.segment_size - sizeof(chunk_recv);
-	    printf("TRANSFER SIZE: %d\n",transfer_size);
+		//int transfer_size = info.segment_size - sizeof(chunk_recv);
+
 	    //display("cons", test_string, 64);
 
 		int ptr_count = 0;
 		ssize_t FILE_REMAINING = file_len;
 
 
+		msync(chunk_recv,info.segment_size,MS_SYNC| MS_INVALIDATE);
 		char* full_buffer = malloc(file_len);
+
 
 		while(FILE_REMAINING > 0){
 
-			//msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
-			//pthread_cond_wait (&chunk_recv->cond_shm_read, &chunk_recv->m);
+			msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
 			if(FILE_REMAINING < transfer_size)
 			{
 				transfer_size = FILE_REMAINING;
 			}
+
+
+
+			printf("About to wait?\n");
+			pthread_cond_wait (&chunk_recv->cond_shm_read, &chunk_recv->m);
 			pthread_mutex_lock(&chunk_recv->m);
+			printf("shm_read signal received or mutex available\n\n");
+
+
+
+
 			printf("***HANDLER LOCKED***\n");
-				char* temp_buffer = (char*)&chunk_recv->data;//,chunk_recv->file_size);
+			char* temp_buffer = (char*)&chunk_recv->data;//,chunk_recv->file_size);
+			printf("chunk data: %s\n\n",(char*)&chunk_recv->data);
+			printf("handler temp buff: %s\n",temp_buffer);
+
 			pthread_mutex_unlock(&chunk_recv->m);
+
 			printf("***HANDLER UNLOCKED***\n");
-			pthread_cond_signal(&chunk_recv->cond_shm_write);
+			pthread_cond_broadcast(&chunk_recv->cond_shm_write);
 			printf("***CACHE SIGNALED***\n");
 			memcpy(full_buffer,temp_buffer + ptr_count,transfer_size);
 			FILE_REMAINING -= transfer_size;
@@ -290,7 +306,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//exit(-1);
 		//}
 
-		free(file_name);
 		free(full_buffer);
 
 

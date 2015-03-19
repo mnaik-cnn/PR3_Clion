@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
   unsigned short port = 8888;
   unsigned short nworkerthreads = 1;
   unsigned short num_segments = 1;
-  long segment_size = 1024;
+  long segment_size = 512;
   char* cache_server_addr = "0.0.0.0";
 
   //char *server = "s3.amazonaws.com/content.udacity-data.com";
