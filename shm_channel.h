@@ -30,6 +30,7 @@ struct shm_information {
     char* cache_server_addr;
     int segment_size;
     char* segment_name;
+
 };
 
 
@@ -43,6 +44,9 @@ struct shm_data_struct{
     ssize_t segment_size;
     ssize_t buffer_size;
     ssize_t file_size;
+    int read_write_flag;
+    //read = 0;
+    //write = 1;
 };
 
 

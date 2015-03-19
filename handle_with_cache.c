@@ -178,42 +178,54 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		ssize_t FILE_REMAINING = file_len;
 
 
+
 		msync(chunk_recv,info.segment_size,MS_SYNC| MS_INVALIDATE);
 		char* full_buffer = malloc(file_len);
 
 
+
 		while(FILE_REMAINING > 0){
 
-			msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
-			if(FILE_REMAINING < transfer_size)
-			{
-				transfer_size = FILE_REMAINING;
-			}
-
-
-
-			printf("About to wait?\n");
-			pthread_cond_wait (&chunk_recv->cond_shm_read, &chunk_recv->m);
-			pthread_mutex_lock(&chunk_recv->m);
-			printf("shm_read signal received or mutex available\n\n");
 
 
 
 
-			printf("***HANDLER LOCKED***\n");
-			char* temp_buffer = (char*)&chunk_recv->data;//,chunk_recv->file_size);
-			printf("chunk data: %s\n\n",(char*)&chunk_recv->data);
-			printf("handler temp buff: %s\n",temp_buffer);
 
-			pthread_mutex_unlock(&chunk_recv->m);
+				while (chunk_recv->read_write_flag == 1) {
+					//printf("FLAG IS SET TO %d\n",chunk_recv->read_write_flag);
+					msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
+					//pthread_cond_wait(&chunk_recv->cond_shm_read, &chunk_recv->m);
+					//printf("Try to lock\n");
+				}
+				if(FILE_REMAINING < transfer_size)
+				{
+					transfer_size = FILE_REMAINING;
+				}
 
-			printf("***HANDLER UNLOCKED***\n");
-			pthread_cond_broadcast(&chunk_recv->cond_shm_write);
-			printf("***CACHE SIGNALED***\n");
-			memcpy(full_buffer,temp_buffer + ptr_count,transfer_size);
-			FILE_REMAINING -= transfer_size;
-			printf("***FILE REMAINING: %ld***\n",FILE_REMAINING);
-			ptr_count += transfer_size;
+				pthread_mutex_lock(&chunk_recv->m);
+					chunk_recv->read_write_flag = 0;
+				pthread_mutex_unlock(&chunk_recv->m);
+
+
+				printf("***HANDLER LOCKED***\n");
+				char *temp_buffer = (char *) &chunk_recv->data;//,chunk_recv->file_size);
+				printf("chunk data: %s\n\n", (char *) &chunk_recv->data);
+				printf("handler temp buff: %s\n", temp_buffer);
+
+				memcpy(full_buffer + ptr_count, temp_buffer, transfer_size);
+				FILE_REMAINING -= transfer_size;
+				printf("***FILE REMAINING: %ld***\n", FILE_REMAINING);
+				ptr_count += transfer_size;
+
+				pthread_mutex_lock(&chunk_recv->m);
+				chunk_recv->read_write_flag = 1;
+				pthread_mutex_unlock(&chunk_recv->m);
+				printf("***HANDLER UNLOCKED***\n");
+
+				pthread_cond_broadcast(&chunk_recv->cond_shm_write);
+				printf("***CACHE SIGNALED***\n");
+
+
 	    }
 			//loop
 
