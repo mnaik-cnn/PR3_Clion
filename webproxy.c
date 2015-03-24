@@ -42,12 +42,23 @@ static struct option gLongOptions[] = {
 //extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
 extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
 
+unsigned short num_segments;
+void CleanUpShm();
+void CleanUpShm(){
+    for(int i = 0; i<= num_segments; i++) {
+    char shm_name[256];
+      sprintf(shm_name, "segment_%d", i);
+      unlink(shm_name);
+    }
+}
 
 static gfserver_t gfs;
 
 static void _sig_handler(int signo){
   if (signo == SIGINT || signo == SIGTERM){
-    gfserver_stop(&gfs);
+
+      CleanUpShm();
+      gfserver_stop(&gfs);
     exit(signo);
   }
 }
@@ -57,7 +68,7 @@ int main(int argc, char **argv) {
   int i, option_char = 0;
   unsigned short port = 8888;
   unsigned short nworkerthreads = 1;
-  unsigned short num_segments = 1;
+  num_segments = 1;
   long segment_size = 512;
   char* cache_server_addr = "0.0.0.0";
 

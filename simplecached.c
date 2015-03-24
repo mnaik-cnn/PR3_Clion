@@ -361,7 +361,7 @@ void *doWorkWithSocket()
 		//we forgot to close socket, take care of this eventually
 
 
-		printf("***TEMP BUFF CONTENTS: %s***\n", temp_buffer);
+		//printf("***TEMP BUFF CONTENTS: %s***\n", temp_buffer);
 
 		//****LOOP TO COPY OVER SHARED MEM*****
 		FILE_REMAINING = file_len;
@@ -377,7 +377,7 @@ void *doWorkWithSocket()
 		//----------------------------CHUNKING UP BUFFER TO SHARE MEM------------------------
 		while (FILE_REMAINING > 0) {
 
-			if (FILE_REMAINING < transf_size) {
+			if (FILE_REMAINING <= transf_size) {
 				transf_size = FILE_REMAINING;
 			}
 
@@ -436,8 +436,10 @@ void *doWorkWithSocket()
 
 
 
-		//munmap(chunk,chunk->segment_size);
+		munmap(chunk,chunk->segment_size);
 
+		close(shm_fd);
+		close(hSocket);
 
 		free(file_name);
 		free(shm_name);

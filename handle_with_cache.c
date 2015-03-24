@@ -52,7 +52,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		struct shm_information info = *(struct shm_information *)arg;
 
 		//a request has come in, as the call back, we need to retrieve a shared memory descriptor
-		printf("did we get this far? segment: %s\n\n",info.segment_name);
+
 		//1.) communicate request via socket to simplecached, the file name and the file descriptor
 		//hard code connection info
 		char *server_address = info.cache_server_addr;
@@ -174,7 +174,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 	    //display("cons", test_string, 64);
 
-		int ptr_count = 0;
+		//int ptr_count = 0;
 		ssize_t FILE_REMAINING = file_len;
 
 
@@ -184,38 +184,44 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 
 
-		while(FILE_REMAINING > 0){
+
+		if(chunk_recv->file_size == 0)
+		{
+			printf("\n***SEND F_N_F BACK TO CLIENT FOR %s***\n",file_name);
+			return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
+		}
+
+		else {
+			printf("\n***SEND GF_OK - FILE LEN %ld BACK TO CLIENT***\n", file_len);
+			gfs_sendheader(ctx, GF_OK, file_len);
 
 
-
-
-
-
+			while (FILE_REMAINING > 0) {
 				while (chunk_recv->read_write_flag == 1) {
 					//printf("FLAG IS SET TO %d\n",chunk_recv->read_write_flag);
-					msync(chunk_recv,chunk_recv->segment_size,MS_SYNC| MS_INVALIDATE);
+					msync(chunk_recv, chunk_recv->segment_size, MS_SYNC | MS_INVALIDATE);
 					//pthread_cond_wait(&chunk_recv->cond_shm_read, &chunk_recv->m);
 					//printf("Try to lock\n");
 				}
-				if(FILE_REMAINING < transfer_size)
-				{
+				if (FILE_REMAINING <= transfer_size) {
 					transfer_size = FILE_REMAINING;
 				}
 
 				pthread_mutex_lock(&chunk_recv->m);
-					chunk_recv->read_write_flag = 0;
+				chunk_recv->read_write_flag = 0;
 				pthread_mutex_unlock(&chunk_recv->m);
-
 
 				printf("***HANDLER LOCKED***\n");
 				char *temp_buffer = (char *) &chunk_recv->data;//,chunk_recv->file_size);
 				printf("chunk data: %s\n\n", (char *) &chunk_recv->data);
 				printf("handler temp buff: %s\n", temp_buffer);
 
-				memcpy(full_buffer + ptr_count, temp_buffer, transfer_size);
+				write_len = gfs_send(ctx,temp_buffer,transfer_size);
+				bytes_transferred += write_len;
+				//memcpy(full_buffer + ptr_count, temp_buffer, transfer_size);
 				FILE_REMAINING -= transfer_size;
 				printf("***FILE REMAINING: %ld***\n", FILE_REMAINING);
-				ptr_count += transfer_size;
+				//ptr_count += transfer_size;
 
 				pthread_mutex_lock(&chunk_recv->m);
 				chunk_recv->read_write_flag = 1;
@@ -226,7 +232,8 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 				printf("***CACHE SIGNALED***\n");
 
 
-	    }
+			}
+		}
 			//loop
 
 
@@ -269,6 +276,8 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//clean this up
 
 
+		if(2==1)
+		{
 
 		printf("\n***SEND GF_OK - FILE LEN %ld BACK TO CLIENT***\n",file_len);
 		gfs_sendheader(ctx, GF_OK, file_len);
@@ -311,13 +320,16 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 			printf("***%ld BYTES REMAINING - TOTAL SENT = %ld ***\n",FILE_REMAINING,bytes_transferred );
 		}
 
+		}
 
 		//unlink
 		//if (shm_unlink(shm_name) == -1) {
 		//printf("Error removing %s\n",shm_name);
 		//exit(-1);
 		//}
-
+		munmap(chunk_recv,chunk_recv->segment_size);
+		close(shm_fd);
+		close(hSocket);
 		free(full_buffer);
 
 
