@@ -19,12 +19,19 @@
 #define HOST_NAME_SIZE      255
 #define WORKER_QUEUE_SIZE 50000
 
+#include "steque.h"
 
 #define MAX_FILE_SIZE_BYTES 10485760
 
 
 
 //***********SHARED MEM************
+
+
+
+steque_t SHM_FD_QUEUE;
+
+
 
 struct shm_information {
     char* cache_server_addr;

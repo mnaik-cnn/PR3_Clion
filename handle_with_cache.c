@@ -98,6 +98,10 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		strcat(file_name,path);
 
 		//*********OPEN STRUCTURE**********
+
+		steque_item item_to_pass = steque_front(&SHM_FD_QUEUE);
+		info.segment_name = item_to_pass;
+
 		shm_fd = shm_open(info.segment_name, O_CREAT | O_RDWR, 0666);
 		if (shm_fd == -1) {
 			perror("fd_sh:ERROR");
@@ -137,7 +141,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 
 		//int shared_memory_size = sizeof(shm_data);
 		int transfer_size = info.segment_size - sizeof(chunk_recv);
-		printf("TRANSFER SIZE: %d\n",transfer_size);
+		//printf("TRANSFER SIZE: %d\n",transfer_size);
 
 	    printf("\n***WRITING %s TO SOCKET***\n",file_name);
 	    write(hSocket,file_name, 256 * sizeof(char));
@@ -157,181 +161,192 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		//ask for the file size so we can allocate memory efficiently
 		read(hSocket,&file_size,sizeof(file_size));
 		printf("\n***RETRIEVED \"%d BYTES\" FROM SOCKET***\n",file_size);
+		char *full_buffer;
 
-		//printf("pointer: %p\n",shr_ptr);
-
-		//free this somewhere
-
-		//free(file_size);
+		if(file_size > 0) {
 
 
-		file_len = file_size;
+			//printf("pointer: %p\n",shr_ptr);
+
+			//free this somewhere
+
+			//free(file_size);
 
 
-
-		//int transfer_size = chunk_recv->buffer_size;
-		//int transfer_size = info.segment_size - sizeof(chunk_recv);
-
-	    //display("cons", test_string, 64);
-
-		//int ptr_count = 0;
-		ssize_t FILE_REMAINING = file_len;
+			file_len = file_size;
 
 
 
-		msync(chunk_recv,info.segment_size,MS_SYNC| MS_INVALIDATE);
-		char* full_buffer = malloc(file_len);
+			//int transfer_size = chunk_recv->buffer_size;
+			//int transfer_size = info.segment_size - sizeof(chunk_recv);
+
+			//display("cons", test_string, 64);
+
+			//int ptr_count = 0;
+			ssize_t FILE_REMAINING = file_len;
 
 
+			msync(chunk_recv, info.segment_size, MS_SYNC | MS_INVALIDATE);
+			full_buffer = malloc(file_len);
 
 
-		if(chunk_recv->file_size == 0)
-		{
-			printf("\n***SEND F_N_F BACK TO CLIENT FOR %s***\n",file_name);
-			return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
-		}
-
-		else {
-			printf("\n***SEND GF_OK - FILE LEN %ld BACK TO CLIENT***\n", file_len);
-			gfs_sendheader(ctx, GF_OK, file_len);
-
-
-			while (FILE_REMAINING > 0) {
-				while (chunk_recv->read_write_flag == 1) {
-					//printf("FLAG IS SET TO %d\n",chunk_recv->read_write_flag);
-					msync(chunk_recv, chunk_recv->segment_size, MS_SYNC | MS_INVALIDATE);
-					//pthread_cond_wait(&chunk_recv->cond_shm_read, &chunk_recv->m);
-					//printf("Try to lock\n");
-				}
-				if (FILE_REMAINING <= transfer_size) {
-					transfer_size = FILE_REMAINING;
-				}
-
-				pthread_mutex_lock(&chunk_recv->m);
-				chunk_recv->read_write_flag = 0;
-				pthread_mutex_unlock(&chunk_recv->m);
-
-				printf("***HANDLER LOCKED***\n");
-				char *temp_buffer = (char *) &chunk_recv->data;//,chunk_recv->file_size);
-				printf("chunk data: %s\n\n", (char *) &chunk_recv->data);
-				printf("handler temp buff: %s\n", temp_buffer);
-
-				write_len = gfs_send(ctx,temp_buffer,transfer_size);
-				bytes_transferred += write_len;
-				//memcpy(full_buffer + ptr_count, temp_buffer, transfer_size);
-				FILE_REMAINING -= transfer_size;
-				printf("***FILE REMAINING: %ld***\n", FILE_REMAINING);
-				//ptr_count += transfer_size;
-
-				pthread_mutex_lock(&chunk_recv->m);
-				chunk_recv->read_write_flag = 1;
-				pthread_mutex_unlock(&chunk_recv->m);
-				printf("***HANDLER UNLOCKED***\n");
-
-				pthread_cond_broadcast(&chunk_recv->cond_shm_write);
-				printf("***CACHE SIGNALED***\n");
-
-
+			if (chunk_recv->file_size == 0) {
+				printf("\n***SEND F_N_F BACK TO CLIENT FOR %s***\n", file_name);
+				return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
 			}
-		}
+
+			else {
+				printf("\n***SEND GF_OK - FILE LEN %ld BACK TO CLIENT***\n", file_len);
+				gfs_sendheader(ctx, GF_OK, file_len);
+
+
+				while (FILE_REMAINING > 0) {
+					while (chunk_recv->read_write_flag == 1) {
+						//printf("FLAG IS SET TO %d\n",chunk_recv->read_write_flag);
+						msync(chunk_recv, chunk_recv->segment_size, MS_SYNC | MS_INVALIDATE);
+						//pthread_cond_wait(&chunk_recv->cond_shm_read, &chunk_recv->m);
+						//printf("Try to lock\n");
+					}
+					if (FILE_REMAINING <= transfer_size) {
+						transfer_size = FILE_REMAINING;
+					}
+
+					pthread_mutex_lock(&chunk_recv->m);
+					chunk_recv->read_write_flag = 0;
+					pthread_mutex_unlock(&chunk_recv->m);
+
+					printf("***HANDLER LOCKED***\n");
+					char *temp_buffer = malloc(transfer_size);
+					temp_buffer[0] = '\0';
+					memcpy(temp_buffer, &chunk_recv->data, transfer_size);
+
+					//(char *) &chunk_recv->data;//,chunk_recv->file_size);
+					printf("chunk data: %s\n\n", (char *) &chunk_recv->data);
+					printf("handler temp buff: %s\n", temp_buffer);
+
+					write_len = gfs_send(ctx, temp_buffer, transfer_size);
+					bytes_transferred += write_len;
+					//memcpy(full_buffer + ptr_count, temp_buffer, transfer_size);
+					FILE_REMAINING -= transfer_size;
+					printf("***FILE REMAINING: %ld***\n", FILE_REMAINING);
+					//ptr_count += transfer_size;
+
+					pthread_mutex_lock(&chunk_recv->m);
+					chunk_recv->read_write_flag = 1;
+					pthread_mutex_unlock(&chunk_recv->m);
+					printf("***HANDLER UNLOCKED***\n");
+
+					free(temp_buffer);
+
+					pthread_cond_broadcast(&chunk_recv->cond_shm_write);
+					printf("***CACHE SIGNALED***\n");
+
+
+				}
+			}
 			//loop
 
 
 
 
-		printf("***\nSHM DATA is %s\n***",full_buffer);
+			printf("***\nSHM DATA is %s\n***", full_buffer);
 
 
 
-	//-----------------END SOCKET STUFF-------------------------
+			//-----------------END SOCKET STUFF-------------------------
 
-	//2.) lock, copy saved by simplecached, unlock
+			//2.) lock, copy saved by simplecached, unlock
 
 
 
-	//3.) send the file from the shared memory desciptor,
-	// sending file back to client
+			//3.) send the file from the shared memory desciptor,
+			// sending file back to client
 
-	printf("\n***SEND FILE BACK TO CLIENT***\n");
-    //if(1==1) {
-		//if (0 > (fildes = open((char*)&chunk_recv->data, O_RDONLY))) {
+			printf("\n***SEND FILE BACK TO CLIENT***\n");
+			//if(1==1) {
+			//if (0 > (fildes = open((char*)&chunk_recv->data, O_RDONLY))) {
 			//if (errno == ENOENT) {
-				/* If the file just wasn't found, then send FILE_NOT_FOUND code*/
-				//printf("\n***SEND F_N_F BACK TO CLIENT FOR %s***\n",(char*)test_string);
-				//return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
+			/* If the file just wasn't found, then send FILE_NOT_FOUND code*/
+			//printf("\n***SEND F_N_F BACK TO CLIENT FOR %s***\n",(char*)test_string);
+			//return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
 			//}
 			//else {
 			//printf("\n***SERVER ERROR***\n");
 			///* Otherwise, it must have been a server error. gfserver library will handle*/
 			//return EXIT_FAILURE;
 			//}
-		//}
+			//}
 
-		/* Calculating the file size */
-		//file_len = lseek(fildes, 0, SEEK_END);
-		//printf("\n***FILE DES SAYS FILE IS %ld***\n",file_len);
-		//lseek(fildes, 0, SEEK_SET);
-
-
-		//clean this up
+			/* Calculating the file size */
+			//file_len = lseek(fildes, 0, SEEK_END);
+			//printf("\n***FILE DES SAYS FILE IS %ld***\n",file_len);
+			//lseek(fildes, 0, SEEK_SET);
 
 
-		if(2==1)
-		{
+			//clean this up
 
-		printf("\n***SEND GF_OK - FILE LEN %ld BACK TO CLIENT***\n",file_len);
-		gfs_sendheader(ctx, GF_OK, file_len);
 
-		int transf_amt = 1024;
-		int cur_ptr = 0;
+			if (2 == 1) {
 
-		printf("\n***BEGIN TRANSFER***\n");
-		/* Sending the file contents chunk by chunk. */
-		bytes_transferred = 0;
-		FILE_REMAINING = file_len;
-		//while (bytes_transferred < file_len) {
-		while (FILE_REMAINING > 0) {
-			if(FILE_REMAINING >= transf_amt) {
-				printf("***FILE REMAINING > 1024***");
-				//read_len = pread(shm_fd, test_string,transf_amt,0);
-				write_len = gfs_send(ctx, full_buffer + cur_ptr, transf_amt);
-				read_len = write_len;
-				cur_ptr += write_len;
+				printf("\n***SEND GF_OK - FILE LEN %ld BACK TO CLIENT***\n", file_len);
+				gfs_sendheader(ctx, GF_OK, file_len);
+
+				int transf_amt = 1024;
+				int cur_ptr = 0;
+
+				printf("\n***BEGIN TRANSFER***\n");
+				/* Sending the file contents chunk by chunk. */
+				bytes_transferred = 0;
+				FILE_REMAINING = file_len;
+				//while (bytes_transferred < file_len) {
+				while (FILE_REMAINING > 0) {
+					if (FILE_REMAINING >= transf_amt) {
+						printf("***FILE REMAINING > 1024***");
+						//read_len = pread(shm_fd, test_string,transf_amt,0);
+						write_len = gfs_send(ctx, full_buffer + cur_ptr, transf_amt);
+						read_len = write_len;
+						cur_ptr += write_len;
+					}
+					else {
+						printf("***FILE REMAINING < 1024...ONLY %ld***\n", FILE_REMAINING);
+						//read_len = pread(shm_fd, test_string,FILE_REMAINING,0);
+						write_len = gfs_send(ctx, full_buffer + cur_ptr, FILE_REMAINING);
+						read_len = write_len;
+						cur_ptr += write_len;
+					}
+
+					if (read_len <= 0) {
+						fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len);
+						return EXIT_FAILURE;
+					}
+
+					if (write_len != read_len) {
+						fprintf(stderr, "handle_with_file write error");
+						return EXIT_FAILURE;
+					}
+					bytes_transferred += write_len;
+					FILE_REMAINING -= write_len;
+					printf("***%ld BYTES REMAINING - TOTAL SENT = %ld ***\n", FILE_REMAINING, bytes_transferred);
+				}
+
 			}
-			else{
-				printf("***FILE REMAINING < 1024...ONLY %ld***\n",FILE_REMAINING);
-				//read_len = pread(shm_fd, test_string,FILE_REMAINING,0);
-				write_len = gfs_send(ctx, full_buffer + cur_ptr,FILE_REMAINING);
-				read_len = write_len;
-				cur_ptr += write_len;
-			}
 
-			if (read_len <= 0) {
-				fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len);
-				return EXIT_FAILURE;
-			}
-
-			if (write_len != read_len) {
-				fprintf(stderr, "handle_with_file write error");
-				return EXIT_FAILURE;
-			}
-			bytes_transferred += write_len;
-			FILE_REMAINING -= write_len;
-			printf("***%ld BYTES REMAINING - TOTAL SENT = %ld ***\n",FILE_REMAINING,bytes_transferred );
+			//unlink
+			//if (shm_unlink(shm_name) == -1) {
+			//printf("Error removing %s\n",shm_name);
+			//exit(-1);
+			//}
+			free(full_buffer);
+		}
+		else{
+			return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
 		}
 
-		}
+		steque_push(&SHM_FD_QUEUE,item_to_pass);
 
-		//unlink
-		//if (shm_unlink(shm_name) == -1) {
-		//printf("Error removing %s\n",shm_name);
-		//exit(-1);
-		//}
 		munmap(chunk_recv,chunk_recv->segment_size);
 		close(shm_fd);
 		close(hSocket);
-		free(full_buffer);
-
 
 		return bytes_transferred;
 	//}

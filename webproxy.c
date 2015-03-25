@@ -47,7 +47,7 @@ void CleanUpShm();
 void CleanUpShm(){
     for(int i = 0; i<= num_segments; i++) {
     char shm_name[256];
-      sprintf(shm_name, "segment_%d", i);
+      sprintf(shm_name, "/segment_%d", i);
       unlink(shm_name);
     }
 }
@@ -58,6 +58,7 @@ static void _sig_handler(int signo){
   if (signo == SIGINT || signo == SIGTERM){
 
       CleanUpShm();
+      printf("\n\nMemory Segments cleaned up...stopping server...\n\n");
       gfserver_stop(&gfs);
     exit(signo);
   }
@@ -72,6 +73,8 @@ int main(int argc, char **argv) {
   long segment_size = 512;
   char* cache_server_addr = "0.0.0.0";
 
+
+  printf("***STARTING PROXY***\n\n");
   //char *server = "s3.amazonaws.com/content.udacity-data.com";
 
   if (signal(SIGINT, _sig_handler) == SIG_ERR){
@@ -117,15 +120,16 @@ int main(int argc, char **argv) {
     char shm_name[256];
     int shm_fd;
 
+    printf("***INIT SHARED MEMORY QUEUE***\n\n");
+
     //queue is global in shm_channel.h
-    steque_t SHM_FD_QUEUE;
     steque_init(&SHM_FD_QUEUE);
 
     //*******CREATE SHARED MEMORY SEGMENT********
     for(int i = 0; i<= num_segments; i++) {
 
-      sprintf(shm_name, "segment_%d", i);
-
+      sprintf(shm_name, "/segment_%d", i);
+      printf("***Creating and Opening %s\n***",shm_name);
       shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
       if (shm_fd == -1) {
         perror("fd_sh:ERROR");
@@ -135,30 +139,31 @@ int main(int argc, char **argv) {
       ftruncate(shm_fd,segment_size);
       steque_item steqi = shm_name;
       steque_push(&SHM_FD_QUEUE,steqi);
-
+      printf("***%s added to queue\n***",shm_name);
     }
 
 
   /*Initializing server*/
   gfserver_init(&gfs, nworkerthreads);
-
+  printf("***GF server initialized***\n\n");
   /*Setting options*/
   gfserver_setopt(&gfs, GFS_PORT, port);
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
   gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_cache);
 
+  printf("***spin up handler threads***\n\n");
   for(i = 0; i < nworkerthreads; i++) {
     //gfs.contexts->arg = server;
     //send queue of shared memory to handler
-    steque_item item_to_pass = steque_front(&SHM_FD_QUEUE);
+    //steque_item item_to_pass = steque_front(&SHM_FD_QUEUE);
 
     struct shm_information info;
     info.cache_server_addr = cache_server_addr;
-    info.segment_name = item_to_pass;
+    info.segment_name = "test";
     info.segment_size = segment_size;
 
     gfserver_setopt(&gfs, GFS_WORKER_ARG, i,&info);
-    steque_cycle(&SHM_FD_QUEUE);
+    //steque_cycle(&SHM_FD_QUEUE);
 
   }
 
