@@ -46,7 +46,7 @@ struct shm_data_struct{
     pthread_cond_t  cond_shm_read;
     pthread_cond_t  cond_shm_write;
 
-    char* data;
+
     //buffer should size should equal segment size - structure size
     ssize_t segment_size;
     ssize_t buffer_size;
@@ -54,6 +54,7 @@ struct shm_data_struct{
     int read_write_flag;
     //read = 0;
     //write = 1;
+    char data[];
 };
 
 

@@ -280,18 +280,18 @@ void *doWorkWithSocket()
 
 			//struct shm_data_struct temp_struct;
 
-			struct shm_data_struct *chunk = malloc(sizeof(struct shm_data_struct));
+			struct shm_data_struct *chunk;// = malloc(sizeof(struct shm_data_struct));
 			chunk = mmap(0, segment_size, O_RDWR, MAP_SHARED, shm_fd, 0);
 			printf("***sizeof(segment) %d ***\n", segment_size);
 			printf("***sizeof(struct shm_data_struct) %ld ***\n", sizeof(struct shm_data_struct));
-			chunk->buffer_size = segment_size - sizeof(chunk);
-			printf("***sizeof(buffer) %ld ***\n", chunk->buffer_size);
-			chunk->data = malloc(chunk->buffer_size);
+			//chunk->buffer_size = segment_size - sizeof(chunk);
+			//printf("***sizeof(buffer) %ld ***\n", chunk->buffer_size);
+			//chunk->data = malloc(chunk->buffer_size);
 			printf("***sizeof(chunk) %ld ***\n", sizeof(chunk));
 			chunk->file_size = file_len;
 			printf("***sizeof(chunk) %ld ***\n", sizeof(chunk));
 
-			printf("\n***CHUNK.DATA MALLOC'D AT %ld, actual size %ld, size of chunk %ld***\n", chunk->buffer_size, sizeof(chunk->data), sizeof(chunk));
+			//printf("\n***CHUNK.DATA MALLOC'D AT %ld, actual size %ld, size of chunk %ld***\n", chunk->buffer_size, sizeof(chunk->data), sizeof(chunk));
 
 
 			int transf_size = (segment_size - sizeof(chunk));
@@ -328,7 +328,7 @@ void *doWorkWithSocket()
 
 			char *temp_buffer = malloc(file_len);
 
-			int cache_to_buffer_transf_size = 4096;
+			int cache_to_buffer_transf_size = file_len;
 			printf("CACHE TO BUFFER TRANSFER SIZE: %d\n", cache_to_buffer_transf_size);
 
 			//TWO USE CASES
@@ -343,11 +343,11 @@ void *doWorkWithSocket()
 			ssize_t SIZE_SENT = 0;
 			while (FILE_REMAINING > 0) {
 				if (FILE_REMAINING >= cache_to_buffer_transf_size) {
-					SIZE_SENT = pread(cache_fd, temp_buffer, cache_to_buffer_transf_size, 0);
+					SIZE_SENT = pread(cache_fd, temp_buffer, cache_to_buffer_transf_size,TOTAL_SIZE_SENT);
 					printf("***WROTE %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 				}
 				else {
-					SIZE_SENT = pread(cache_fd, temp_buffer, FILE_REMAINING, 0);
+					SIZE_SENT = pread(cache_fd, temp_buffer, FILE_REMAINING,TOTAL_SIZE_SENT);
 					printf("***WROTE %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 				}
 				TOTAL_SIZE_SENT += SIZE_SENT;
@@ -383,6 +383,21 @@ void *doWorkWithSocket()
 
 			//char *chunk_buffer = malloc(transf_size);
 
+
+			FILE* pFile;
+			char* yourFilePath  = "TEST_FILE.jpeg";
+			pFile = fopen(yourFilePath,"wb");
+			if (pFile){
+				fwrite(temp_buffer,file_len, 1, pFile);
+				puts("Wrote to file!");
+			}
+			else{
+				puts("Something wrong writing to File.");
+			}
+			fclose(pFile);
+
+
+			int bytesRead = 0;
 			//transfer size set to buffer chunk size before
 			//----------------------------CHUNKING UP BUFFER TO SHARE MEM------------------------
 			while (FILE_REMAINING > 0) {
@@ -394,6 +409,7 @@ void *doWorkWithSocket()
 				while (chunk->read_write_flag == 0) {
 
 					msync(chunk, chunk->segment_size, MS_SYNC | MS_INVALIDATE);
+					//printf("WAITING\n");
 					//pthread_cond_wait(&chunk->cond_shm_write, &chunk->m);
 				}
 
@@ -403,7 +419,8 @@ void *doWorkWithSocket()
 
 				printf("***CACHE LOCKED***\n");
 
-				memcpy(&chunk->data, temp_buffer + ptr_count, transf_size);
+				//memcpy(&chunk->data, temp_buffer + ptr_count, transf_size);
+				memcpy(chunk->data, &temp_buffer[bytesRead], transf_size);
 				//memcpy(chunk_buffer, temp_buffer + ptr_count, transf_size);
 				//memcpy(&chunk->data, chunk_buffer, transf_size);
 				//chunk->data = chunk_buffer;
@@ -423,6 +440,7 @@ void *doWorkWithSocket()
 				FILE_REMAINING -= transf_size;
 				printf("***FILE REMAINING: %ld***\n", FILE_REMAINING);
 				ptr_count += transf_size;
+				bytesRead += transf_size;
 				printf("ptr-count: %d\n\n", ptr_count);
 				//rintf("***WROTE %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 			}

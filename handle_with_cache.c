@@ -205,7 +205,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 						//printf("FLAG IS SET TO %d\n",chunk_recv->read_write_flag);
 						msync(chunk_recv, chunk_recv->segment_size, MS_SYNC | MS_INVALIDATE);
 						//pthread_cond_wait(&chunk_recv->cond_shm_read, &chunk_recv->m);
-						//printf("Try to lock\n");
+
 					}
 					if (FILE_REMAINING <= transfer_size) {
 						transfer_size = FILE_REMAINING;

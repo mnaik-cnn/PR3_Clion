@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
     steque_init(&SHM_FD_QUEUE);
 
     //*******CREATE SHARED MEMORY SEGMENT********
-    for(int i = 0; i<= num_segments; i++) {
+    for(int i = 0; i < num_segments; i++) {
 
       sprintf(shm_name, "/segment_%d", i);
       printf("***Creating and Opening %s\n***",shm_name);
