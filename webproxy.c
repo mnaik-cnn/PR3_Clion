@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
   }
 
   // Parse and set command line arguments
-  while ((option_char = getopt_long(argc, argv, "z:n:p:t:s:h", gLongOptions, NULL)) != -1) {
+  while ((option_char = getopt_long(argc, argv, "p:s:t:n:z:h", gLongOptions, NULL)) != -1) {
     switch (option_char) {
       case 'p': // listen-port
         port = atoi(optarg);
