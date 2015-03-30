@@ -33,7 +33,7 @@ static void _sig_handler(int signo){
 	if (signo == SIGINT || signo == SIGTERM){
 		//shmc_unlink(shmc);
 		/*!!!!!!!!!!!!!!!!!!!!UNLINK IPC MECHANISMS HERE!!!!!!!!!!!!!!!!!!!*/
-		//make sure we uncomment that !!!!
+
 
 		exit(signo);
 	}
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 
 	//init connection queue
 
-	printf("***INIT CONNECTION QUEUE***\n");
+	fprintf(stderr,"***INIT CONNECTION QUEUE***\n");
 	steque_init(&connection_queue);
 
 	int nthreads = 1;
@@ -77,16 +77,14 @@ int main(int argc, char **argv) {
 		//-----(no params for threads because they will get work from the queue)-------
 		rc = pthread_create(&threads[t], NULL, doWorkWithSocket, NULL);
 		if (rc) {
-			printf("\nERROR; return code from pthread_create() is %d\n", rc);
+			fprintf(stderr,"\nERROR; return code from pthread_create() is %d\n", rc);
 			exit(-1);
 		}
 		else {
-			printf("\nTHREAD %d CREATED\n", t);
+			fprintf(stderr,"\nTHREAD %d CREATED\n", t);
 		}
 	}
 
-	// what is int i for???
-	//int i;
 
 	char option_char;
 
@@ -119,10 +117,10 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	printf("***Initializing the cache boss***\n");
-	printf("***Cache Dir = %s***\n", cachedir);
+	fprintf(stderr,"***Initializing the cache boss***\n");
+	fprintf(stderr,"***Cache Dir = %s***\n", cachedir);
 	simplecache_init(cachedir);
-	printf("***NUM CACHE THREADS: %d***\n", nthreads);
+	fprintf(stderr,"***NUM CACHE THREADS: %d***\n", nthreads);
 
 	//1.)boss thread gets connection, sends details to thread and spins it up
 	//-----------------------!!!SOCKET STUFF!!!-----------------------
@@ -132,20 +130,20 @@ int main(int argc, char **argv) {
 	struct sockaddr_in Address;
 	int nAddressSize = sizeof(struct sockaddr_in);
 	int nHostPort = 8887;
-	printf("\n***CREATING A SERVER SOCKET***\n");
+	fprintf(stderr,"\n***CREATING A SERVER SOCKET***\n");
 	//-------MAKE A SERVER SOCKET------------
 	int hSocket;
 	int returnCode = CreateServerSocket(&hServerSocket);
 	if (returnCode == 0) {
-		printf("\nCould not make a socket\n");
+		fprintf(stderr,"\nCould not make a socket\n");
 		return 0;
 	}
 	//----------FILL ADDRESS DETAILS------------------
 	FillAddress(&Address, nHostPort);
 	//----------BIND TO SOCKET TO PORT----------------
-	printf("\n***Binding to port %d***", nHostPort);
+	fprintf(stderr,"\n***Binding to port %d***", nHostPort);
 	if (bind(hServerSocket, (struct sockaddr *) &Address, sizeof(Address)) == SOCKET_ERROR) {
-		printf("\nCould not connect to host,error: %s\n", strerror(errno));
+		fprintf(stderr,"\nCould not connect to host,error: %s\n", strerror(errno));
 		//do{
 			return 0;
 			//sleep(1);
@@ -154,19 +152,19 @@ int main(int argc, char **argv) {
 	}
 	//-----------GET PORT NUMBER-------------------
 	getsockname(hServerSocket, (struct sockaddr *) &Address, (socklen_t *) &nAddressSize);
-	printf("\nOpened socket as fd (%d) on port (%d) for stream i/o", hServerSocket, ntohs(Address.sin_port));
-	printf("\nMaking a listen queue of %d elements", QUEUE_SIZE);
+	fprintf(stderr,"\nOpened socket as fd (%d) on port (%d) for stream i/o", hServerSocket, ntohs(Address.sin_port));
+	fprintf(stderr,"\nMaking a listen queue of %d elements", QUEUE_SIZE);
 	/* establish listen queue */
 	//-------------LISTEN FOR CONNECTIONS FOREVER----------------
 	while (1) {
 		if (listen(hServerSocket, QUEUE_SIZE) == SOCKET_ERROR) {
-			printf("\nCould not listen\n");
+			fprintf(stderr,"\nCould not listen\n");
 			return 0;
 		}
-		printf("\nBoss is waiting for a connection\n");
+		fprintf(stderr,"\nBoss is waiting for a connection\n");
 		/* get the connected socket */
 		hSocket = accept(hServerSocket, (struct sockaddr *) &Address, (socklen_t *) &nAddressSize);
-		printf("\nGot a connection on socket %d\n", hSocket);
+		fprintf(stderr,"\nGot a connection on socket %d\n", hSocket);
 
 		//PUT IN CONNECTION QUEUE
 		steque_item queue_item;
@@ -176,7 +174,7 @@ int main(int argc, char **argv) {
 		while(conn_read_write_flag == 0)
 		{
 			writer_waiting ++;
-			printf("waiting for write flag.\n");
+			fprintf(stderr,"waiting for write flag.\n");
 		}
 		pthread_mutex_lock(&m);
 			conn_read_write_flag = 1;
@@ -191,23 +189,23 @@ int main(int argc, char **argv) {
 
 		//pthread_cond_broadcast(&c_cache_get_connection);
 
-		printf("***CONNECTION ADDED, QUEUE HAS %d ITEMS***\n",steque_size(&connection_queue));
+		fprintf(stderr,"***CONNECTION ADDED, QUEUE HAS %d ITEMS***\n",steque_size(&connection_queue));
 	}
 }
 void *doWorkWithSocket() {
 	//lock queue
 	while (1) {
 
-		printf("Thread is working.\n");
+		fprintf(stderr,"Thread is working.\n");
 		steque_item work_item;
 
 		//***********IF QUEUE IS EMPTY THEN WAIT****************
 
 		//while (steque_isempty(&connection_queue)) {
-		//printf("A thread is waiting.\n");
+		//fprintf(stderr,"A thread is waiting.\n");
 		//pthread_cond_wait(&c_cache_get_connection, &m);
 		//}
-		printf("Thread awoke, work to do.\n");
+		fprintf(stderr,"Thread awoke, work to do.\n");
 
 		//ENTER CRITICAL SECTION
 
@@ -215,19 +213,19 @@ void *doWorkWithSocket() {
 
 		while (conn_read_write_flag == 1) {
 			//wait
-			//printf("waiting for read flag.\n");
+			//fprintf(stderr,"waiting for read flag.\n");
 		}
 		pthread_mutex_lock(&m);
 		conn_read_write_flag = 0;
-		printf("write flag set.\n");
+		fprintf(stderr,"write flag set.\n");
 		pthread_mutex_unlock(&m);
 
 		if (conn_read_write_flag == 0) {
-			printf("Thread in critical section.\n");
+			fprintf(stderr,"Thread in critical section.\n");
 
 			if (steque_isempty(&connection_queue)) {
 				is_empty = 1;
-				printf("nothing in queue.\n");
+				fprintf(stderr,"nothing in queue.\n");
 			}
 			else {
 				is_empty = 0;
@@ -242,8 +240,8 @@ void *doWorkWithSocket() {
 
 		if (is_empty == 0) {
 
-			printf("***QUEUE POPPED, HAS %d ITEMS***\n", steque_size(&connection_queue));
-			printf("A thread is has a work item.\n");
+			fprintf(stderr,"***QUEUE POPPED, HAS %d ITEMS***\n", steque_size(&connection_queue));
+			fprintf(stderr,"A thread is has a work item.\n");
 			//EXIT CRITICAL SECTION
 
 			char *full_file_path = malloc(256 * sizeof(char));
@@ -254,26 +252,26 @@ void *doWorkWithSocket() {
 			//*******GET SOCKET FROM WORK ITEM QUEUE*******
 			int hSocket = *(int *) work_item;
 
-			printf("A thread has socket %d\n", hSocket);
+			fprintf(stderr,"A thread has socket %d\n", hSocket);
 
 
 			//**********RECEIVE FILE NAME**************
 			read(hSocket, file_name, 256 * (sizeof(char)));
-			printf("\n***FILE TO PLACE IN SHARED MEM IS %s***\n", file_name);
+			fprintf(stderr,"\n***FILE TO PLACE IN SHARED MEM IS %s***\n", file_name);
 
 			full_file_path[0] = '\0';
 			strcat(full_file_path, file_name);
 
-			printf("\n***FULL FILE PATH: %s\n", full_file_path);
+			fprintf(stderr,"\n***FULL FILE PATH: %s\n", full_file_path);
 
 			//***********RECEIVE SHARED MEM NAME*************
 			read(hSocket, shm_name, 256 * sizeof(char));
-			printf("\n***MEMORY SHARE IS NAMED %s***\n", shm_name);
+			fprintf(stderr,"\n***MEMORY SHARE IS NAMED %s***\n", shm_name);
 
 			int segment_size;
 			//***********RECEIVE SEGMENT SIZE*************
 			read(hSocket, &segment_size, sizeof(int));
-			printf("\n***MEMORY SEGMENT SIZE IS NAMED %d***\n", segment_size);
+			fprintf(stderr,"\n***MEMORY SEGMENT SIZE IS NAMED %d***\n", segment_size);
 
 
 			//get from cache and read into shared memory
@@ -284,63 +282,63 @@ void *doWorkWithSocket() {
 			if (cache_fd < 0) {
 				//file not found
 				file_len = 0;
-				printf("\n***FILE SIZE TO SEND%d***\n", file_len);
+				fprintf(stderr,"\n***FILE SIZE TO SEND%d***\n", file_len);
 				write(hSocket, &file_len, sizeof(file_len));
 			}
 			else {
 
-				printf("\n***CACHE FILE DESCRIPTOR IS %d***\n", cache_fd);
+				fprintf(stderr,"\n***CACHE FILE DESCRIPTOR IS %d***\n", cache_fd);
 				//calculate and return file size
 				file_len = lseek(cache_fd, 0, SEEK_END);
-				printf("\n***FILE SIZE TO SEND%d***\n", file_len);
+				fprintf(stderr,"\n***FILE SIZE TO SEND%d***\n", file_len);
 				write(hSocket, &file_len, sizeof(file_len));
 				//get file, return file size
 
 				/* open the shared memory segment */
 				shm_fd = shm_open(shm_name, O_RDWR, 0666);
 				if (shm_fd == -1) {
-					printf("shared memory failed %s\n", strerror(errno));
+					fprintf(stderr,"shared memory failed %s\n", strerror(errno));
 					exit(-1);
 				}
 
 				/* now map the shared memory segment in the address space of the process */
 				struct shm_data_struct *chunk;// = malloc(sizeof(struct shm_data_struct));
 				chunk = mmap(0, segment_size, O_RDWR, MAP_SHARED, shm_fd, 0);
-				printf("***sizeof(segment) %d ***\n", segment_size);
-				printf("***sizeof(struct shm_data_struct) %ld ***\n", sizeof(struct shm_data_struct));
+				fprintf(stderr,"***sizeof(segment) %d ***\n", segment_size);
+				fprintf(stderr,"***sizeof(struct shm_data_struct) %ld ***\n", sizeof(struct shm_data_struct));
 				//chunk->buffer_size = segment_size - sizeof(chunk);
-				//printf("***sizeof(buffer) %ld ***\n", chunk->buffer_size);
+				//fprintf(stderr,"***sizeof(buffer) %ld ***\n", chunk->buffer_size);
 				//chunk->data = malloc(chunk->buffer_size);
-				printf("***sizeof(chunk) %ld ***\n", sizeof(chunk));
+				fprintf(stderr,"***sizeof(chunk) %ld ***\n", sizeof(chunk));
 				chunk->file_size = file_len;
-				printf("***sizeof(chunk) %ld ***\n", sizeof(chunk));
+				fprintf(stderr,"***sizeof(chunk) %ld ***\n", sizeof(chunk));
 
 				int transf_size = (segment_size - sizeof(chunk));
-				printf("TRANSFER SIZE: %d\n", transf_size);
+				fprintf(stderr,"TRANSFER SIZE: %d\n", transf_size);
 				chunk->buffer_size = transf_size;
 
 				// this is important, this tells each side we should write first
 				chunk->read_write_flag = 1;
 
 				if (chunk == MAP_FAILED) {
-					printf("Map failed %s\n", strerror(errno));
+					fprintf(stderr,"Map failed %s\n", strerror(errno));
 
 					exit(-1);
 				}
-				printf("writing to shared memory\n");
+				fprintf(stderr,"writing to shared memory\n");
 
 				//*********************WRITE FILE TO SHARED MEMORY *************************
 
 				char *temp_buffer = malloc(file_len);
 
 				int cache_to_buffer_transf_size = file_len;
-				printf("CACHE TO BUFFER TRANSFER SIZE: %d\n", cache_to_buffer_transf_size);
+				fprintf(stderr,"CACHE TO BUFFER TRANSFER SIZE: %d\n", cache_to_buffer_transf_size);
 
 				//TWO USE CASES
 				//1.) SEGMENT HOLDS WHOLE FILE AND TRANSFER SIZE IS SMALLER THAN THAT FILE
 				//2.) TRANSFER SIZE IS LARGER THAN SEGMENT
 
-				printf("\n***READING FILE FROM CACHE FILE DESC(%d) TO BUFFER - SAVING TO SHARED MEM FILE DESC (%d)***\n", cache_fd, shm_fd);
+				fprintf(stderr,"\n***READING FILE FROM CACHE FILE DESC(%d) TO BUFFER - SAVING TO SHARED MEM FILE DESC (%d)***\n", cache_fd, shm_fd);
 				size_t FILE_REMAINING = file_len;
 
 				//-------------------FILE TRANSFER FROM CACHE TO BUFFER---------------------
@@ -349,19 +347,19 @@ void *doWorkWithSocket() {
 				while (FILE_REMAINING > 0) {
 					if (FILE_REMAINING >= cache_to_buffer_transf_size) {
 						SIZE_SENT = pread(cache_fd, temp_buffer, cache_to_buffer_transf_size, TOTAL_SIZE_SENT);
-						printf("***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
+						fprintf(stderr,"***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 					}
 					else {
 						SIZE_SENT = pread(cache_fd, temp_buffer, FILE_REMAINING, TOTAL_SIZE_SENT);
-						printf("***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
+						fprintf(stderr,"***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 					}
 					TOTAL_SIZE_SENT += SIZE_SENT;
-					printf("***TOTAL SIZE SENT: %ld***\n", TOTAL_SIZE_SENT);
+					fprintf(stderr,"***TOTAL SIZE SENT: %ld***\n", TOTAL_SIZE_SENT);
 					FILE_REMAINING = FILE_REMAINING - SIZE_SENT;
-					printf("***%ld BYTES REMINAING OUT OF %d***\n", FILE_REMAINING, file_len);
+					fprintf(stderr,"***%ld BYTES REMINAING OUT OF %d***\n", FILE_REMAINING, file_len);
 
 					if (SIZE_SENT == -1) {
-						printf("\nsomething went ong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
+						fprintf(stderr,"\nsomething went ong with sendfile()!...Errno %d %s\n", errno, strerror(errno));
 						fprintf(stderr, "\nerror.. %ld of %d bytes sent\n", SIZE_SENT, file_len);
 						exit(1);
 					}
@@ -371,15 +369,15 @@ void *doWorkWithSocket() {
 					fprintf(stderr, "incomplete transfer from sendfile: %ld of %d bytes\n", SIZE_SENT, file_len);
 					exit(1);
 				}
-				printf("***SIZE SENT: %ld***\n", SIZE_SENT);
+				fprintf(stderr,"***SIZE SENT: %ld***\n", SIZE_SENT);
 
 				//we forgot to close socket, take care of this eventually
-				//printf("***TEMP BUFF CONTENTS: %s***\n", temp_buffer);
+				//fprintf(stderr,"***TEMP BUFF CONTENTS: %s***\n", temp_buffer);
 				//****LOOP TO COPY OVER SHARED MEM*****
 				FILE_REMAINING = file_len;
 				int ptr_count = 0;
 
-				printf("TRANSFER SIZE: %d\n", transf_size);
+				fprintf(stderr,"TRANSFER SIZE: %d\n", transf_size);
 
 				// this was testing cache transfer
 				/*
@@ -406,11 +404,11 @@ void *doWorkWithSocket() {
 
 					while (chunk->read_write_flag == 0) {
 						msync(chunk, chunk->segment_size, MS_SYNC | MS_INVALIDATE);
-						//printf("WAITING\n");
+						//fprintf(stderr,"WAITING\n");
 						//pthread_cond_wait(&chunk->cond_shm_write, &chunk->m);
 					}
 					pthread_mutex_lock(&chunk->m);
-					printf("***CACHE LOCKED***\n");
+					fprintf(stderr,"***CACHE LOCKED***\n");
 					chunk->read_write_flag = 1;
 					pthread_mutex_unlock(&chunk->m);
 
@@ -419,27 +417,27 @@ void *doWorkWithSocket() {
 					//memcpy(chunk_buffer, temp_buffer + ptr_count, transf_size);
 					//memcpy(&chunk->data, chunk_buffer, transf_size);
 					//chunk->data = chunk_buffer;
-					//printf("***chunk buffer:%s***\n", chunk_buffer);
-					//printf("***chunk.data:%s***\n", (char *) &chunk->data);
+					//fprintf(stderr,"***chunk buffer:%s***\n", chunk_buffer);
+					//fprintf(stderr,"***chunk.data:%s***\n", (char *) &chunk->data);
 
 					pthread_mutex_lock(&chunk->m);
 					chunk->read_write_flag = 0;
 					pthread_mutex_unlock(&chunk->m);
-					printf("***CACHE UNLOCKED***\n");
+					fprintf(stderr,"***CACHE UNLOCKED***\n");
 
 					pthread_cond_broadcast(&chunk->cond_shm_read);
-					printf("***HANDLER SIGNALED***\n");
+					fprintf(stderr,"***HANDLER SIGNALED***\n");
 
 					FILE_REMAINING -= transf_size;
-					printf("***FILE REMAINING: %ld***\n", FILE_REMAINING);
+					fprintf(stderr,"***FILE REMAINING: %ld***\n", FILE_REMAINING);
 					ptr_count += transf_size;
 					bytesRead += transf_size;
-					printf("ptr-count: %d\n\n", ptr_count);
+					fprintf(stderr,"ptr-count: %d\n\n", ptr_count);
 				}
 
-				printf("OUT OF WHILE LOOP TO COPY FILE\n\n");
+				fprintf(stderr,"OUT OF WHILE LOOP TO COPY FILE\n\n");
 
-				//printf("\n\ntemp buff: %s\n\n",temp_buffer);
+				//fprintf(stderr,"\n\ntemp buff: %s\n\n",temp_buffer);
 				munmap(chunk, chunk->segment_size);
 				free(file_name);
 				free(shm_name);
