@@ -31,7 +31,7 @@
 static struct option gLongOptions[] = {
   {"port",          required_argument,      NULL,           'p'},
   {"thread-count",  required_argument,      NULL,           't'},
-  {"server",        required_argument,      NULL,           's'},         
+  {"server",        required_argument,      NULL,           's'},
   {"num-segments",  required_argument,            NULL,     'n'},
   {"segment size",  required_argument,            NULL,     'z'},
   {"help",          no_argument,            NULL,           'h'},

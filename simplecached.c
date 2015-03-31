@@ -34,7 +34,6 @@ static void _sig_handler(int signo){
 		//shmc_unlink(shmc);
 		/*!!!!!!!!!!!!!!!!!!!!UNLINK IPC MECHANISMS HERE!!!!!!!!!!!!!!!!!!!*/
 
-
 		exit(signo);
 	}
 }
@@ -304,14 +303,14 @@ void *doWorkWithSocket() {
 				/* now map the shared memory segment in the address space of the process */
 				struct shm_data_struct *chunk;// = malloc(sizeof(struct shm_data_struct));
 				chunk = mmap(0, segment_size, O_RDWR, MAP_SHARED, shm_fd, 0);
-				fprintf(stderr,"***sizeof(segment) %d ***\n", segment_size);
-				fprintf(stderr,"***sizeof(struct shm_data_struct) %ld ***\n", sizeof(struct shm_data_struct));
+				//fprintf(stderr,"***sizeof(segment) %d ***\n", segment_size);
+				//fprintf(stderr,"***sizeof(struct shm_data_struct) %ld ***\n", sizeof(struct shm_data_struct));
 				//chunk->buffer_size = segment_size - sizeof(chunk);
 				//fprintf(stderr,"***sizeof(buffer) %ld ***\n", chunk->buffer_size);
 				//chunk->data = malloc(chunk->buffer_size);
-				fprintf(stderr,"***sizeof(chunk) %ld ***\n", sizeof(chunk));
+				//fprintf(stderr,"***sizeof(chunk) %ld ***\n", sizeof(chunk));
 				chunk->file_size = file_len;
-				fprintf(stderr,"***sizeof(chunk) %ld ***\n", sizeof(chunk));
+				//fprintf(stderr,"***sizeof(chunk) %ld ***\n", sizeof(chunk));
 
 				int transf_size = (segment_size - sizeof(chunk));
 				fprintf(stderr,"TRANSFER SIZE: %d\n", transf_size);
@@ -347,16 +346,16 @@ void *doWorkWithSocket() {
 				while (FILE_REMAINING > 0) {
 					if (FILE_REMAINING >= cache_to_buffer_transf_size) {
 						SIZE_SENT = pread(cache_fd, temp_buffer, cache_to_buffer_transf_size, TOTAL_SIZE_SENT);
-						fprintf(stderr,"***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
+						printf("***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 					}
 					else {
 						SIZE_SENT = pread(cache_fd, temp_buffer, FILE_REMAINING, TOTAL_SIZE_SENT);
-						fprintf(stderr,"***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
+						printf("***READ %ld BYTES OUT OF %ld***\n", SIZE_SENT, FILE_REMAINING);
 					}
 					TOTAL_SIZE_SENT += SIZE_SENT;
-					fprintf(stderr,"***TOTAL SIZE SENT: %ld***\n", TOTAL_SIZE_SENT);
+					printf("***TOTAL SIZE SENT: %ld***\n", TOTAL_SIZE_SENT);
 					FILE_REMAINING = FILE_REMAINING - SIZE_SENT;
-					fprintf(stderr,"***%ld BYTES REMINAING OUT OF %d***\n", FILE_REMAINING, file_len);
+					printf("***%ld BYTES REMAINING OUT OF %d***\n", FILE_REMAINING, file_len);
 
 					if (SIZE_SENT == -1) {
 						fprintf(stderr,"\nsomething went ong with sendfile()!...Errno %d %s\n", errno, strerror(errno));

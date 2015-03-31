@@ -80,11 +80,15 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg){
 		steque_item item_to_pass = steque_front(&SHM_FD_QUEUE);
 		info.segment_name = item_to_pass;
 
-		shm_fd = shm_open(info.segment_name, O_CREAT | O_RDWR, 0666);
+		shm_fd = shm_open(info.segment_name,O_RDWR, 0666);
 		if (shm_fd == -1) {
 			perror("fd_sh:ERROR");
 			return -1;
 		}
+
+		ftruncate(shm_fd,info.segment_size);
+
+
 		//*******MAP STRUCTURE TO SEGMENT*********
 	    struct shm_data_struct* chunk_recv = mmap(0,info.segment_size,O_RDWR, MAP_SHARED, shm_fd, 0);
 	    //void* test_string = mmap(0, MAX_FILE_SIZE_BYTES,O_RDWR, MAP_SHARED, shm_fd, 0);
